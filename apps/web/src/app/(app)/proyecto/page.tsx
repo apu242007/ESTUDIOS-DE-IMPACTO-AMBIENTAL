@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
 import { Alcance } from "@/components/project/alcance";
+import { Capas } from "@/components/project/capas";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
@@ -135,6 +136,7 @@ function ProjectDetail() {
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="alcance">Alcance</TabsTrigger>
+          <TabsTrigger value="capas">Capas</TabsTrigger>
           {isAdmin && <TabsTrigger value="catastro">Catastro</TabsTrigger>}
         </TabsList>
         <TabsContent value="datos" className="pt-4">
@@ -154,6 +156,9 @@ function ProjectDetail() {
         </TabsContent>
         <TabsContent value="alcance" className="pt-4">
           <Alcance projectId={project.id} />
+        </TabsContent>
+        <TabsContent value="capas" className="pt-4">
+          <Capas orgId={orgId} projectId={project.id} />
         </TabsContent>
         {isAdmin && (
           <TabsContent value="catastro" className="pt-4">

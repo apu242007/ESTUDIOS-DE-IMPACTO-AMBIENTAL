@@ -1,0 +1,168 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
+import { errMsg } from "@/lib/data/util";
+import {
+  deleteImport,
+  listLayerImports,
+  requeueImport,
+  statusLabel,
+  uploadLayer,
+  type ImportStatus,
+  type LayerImport,
+} from "@/lib/data/layers";
+import { crsOptions, groupLayerFiles, layerExts } from "@/lib/layer-files";
+
+const badgeVariant: Record<ImportStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  pendiente: "outline",
+  procesando: "secondary",
+  listo: "default",
+  incompleto: "outline",
+  requiere_crs: "destructive",
+  error: "destructive",
+};
+
+function CrsConfirm({ imp, onConfirm, busy }: { imp: LayerImport; onConfirm: (epsg: number) => void; busy: boolean }) {
+  const [epsg, setEpsg] = useState<number>(crsOptions[0].epsg);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <NativeSelect
+        className="h-11 w-72"
+        aria-label="Sistema de coordenadas de la capa"
+        value={epsg}
+        onChange={(e) => setEpsg(Number(e.target.value))}
+      >
+        {crsOptions.map((o) => (
+          <option key={o.epsg} value={o.epsg}>
+            {o.label}
+          </option>
+        ))}
+      </NativeSelect>
+      <Button size="lg" className="h-11" disabled={busy} onClick={() => onConfirm(epsg)}>
+        Confirmar y procesar
+      </Button>
+      <span className="w-full text-sm text-muted-foreground">
+        {imp.error ?? "La capa no trae sistema de coordenadas: confirmalo, no se asume."}
+      </span>
+    </div>
+  );
+}
+
+export function Capas({ orgId, projectId }: { orgId: string; projectId: string }) {
+  const qc = useQueryClient();
+  const key = ["layer-imports", projectId];
+  const input = useRef<HTMLInputElement>(null);
+  const { data: imports = [], isLoading } = useQuery({
+    queryKey: key,
+    queryFn: () => listLayerImports(projectId),
+    // mientras el worker procesa, se refresca solo
+    refetchInterval: (q) =>
+      q.state.data?.some((i) => i.status === "pendiente" || i.status === "procesando") ? 4000 : false,
+  });
+  const refresh = () => void qc.invalidateQueries({ queryKey: key });
+  const fail = (e: unknown) => toast.error(errMsg(e));
+
+  const upload = useMutation({
+    mutationFn: async (files: File[]) => {
+      const { groups, ignored } = groupLayerFiles(files);
+      if (ignored.length) toast.warning(`Se ignoraron: ${ignored.join(", ")}`);
+      if (groups.length === 0) throw new Error("No hay ninguna capa válida (.shp, .kmz o .kml) en la selección.");
+      for (const g of groups) await uploadLayer(orgId, projectId, g);
+      return groups.length;
+    },
+    onSuccess: (n) => {
+      toast.success(`${n} capa(s) en cola de procesamiento`);
+      refresh();
+    },
+    onError: fail,
+  });
+  const requeue = useMutation({
+    mutationFn: (a: { id: string; epsg?: number }) => requeueImport(a.id, a.epsg),
+    onSuccess: refresh,
+    onError: fail,
+  });
+  const del = useMutation({ mutationFn: deleteImport, onSuccess: refresh, onError: fail });
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          ref={input}
+          type="file"
+          multiple
+          hidden
+          accept={layerExts.map((e) => `.${e}`).join(",")}
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (files.length) upload.mutate(files);
+          }}
+        />
+        <Button size="lg" className="h-12 text-base" disabled={upload.isPending} onClick={() => input.current?.click()}>
+          {upload.isPending ? "Subiendo…" : "Subir capas (SHP / KMZ / KML)"}
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          Elegí todos los archivos de cada SHP juntos (.shp, .dbf, .shx, .prj). Si falta alguno se importa igual y se avisa.
+        </p>
+      </div>
+
+      {isLoading && <p>Cargando…</p>}
+      {!isLoading && imports.length === 0 && (
+        <p className="text-sm text-muted-foreground">Sin capas importadas.</p>
+      )}
+
+      {imports.map((imp) => (
+        <Card key={imp.id}>
+          <CardContent className="grid gap-3 pt-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <strong className="text-base">{imp.base_name}</strong>
+              <Badge variant="secondary">{imp.format.toUpperCase()}</Badge>
+              <Badge variant={badgeVariant[imp.status]}>{statusLabel[imp.status]}</Badge>
+              {imp.n_features !== null && <span className="text-sm">{imp.n_features} elementos</span>}
+              {imp.crs_detected && <span className="text-sm text-muted-foreground">{imp.crs_detected}</span>}
+            </div>
+
+            {imp.missing.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                Faltan: {imp.missing.map((m) => `.${m}`).join(", ")}
+              </p>
+            )}
+
+            {imp.status === "requiere_crs" && (
+              <CrsConfirm imp={imp} busy={requeue.isPending} onConfirm={(epsg) => requeue.mutate({ id: imp.id, epsg })} />
+            )}
+            {imp.status === "error" && imp.error && (
+              <p role="alert" className="text-sm text-destructive">
+                {imp.error}
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {(imp.status === "error" || imp.status === "listo" || imp.status === "incompleto") && (
+                <Button variant="outline" className="h-11" onClick={() => requeue.mutate({ id: imp.id })}>
+                  Reprocesar
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={imp.status === "procesando"}
+                onClick={() => {
+                  if (window.confirm(`¿Eliminar la capa “${imp.base_name}” y sus elementos?`)) del.mutate(imp);
+                }}
+              >
+                Quitar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
