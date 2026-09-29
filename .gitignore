@@ -23,3 +23,6 @@ fixtures/*
 # contexto interno (nombres de cliente, rutas locales): solo local
 CLAUDE.md
 docs/private/
+
+# worktrees de agentes
+.claude/
