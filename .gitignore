@@ -1,0 +1,25 @@
+# secretos: nunca versionar (solo .env.example)
+.env*
+!.env.example
+
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# datos reales del cliente (privacidad, ver CLAUDE.md A.10 / Parte D)
+fixtures/*
+!fixtures/README.md
+
+.DS_Store
+
+# contexto interno (nombres de cliente, rutas locales): solo local
+CLAUDE.md
+docs/private/

@@ -1,0 +1,7 @@
+services:
+  worker:
+    build: ./apps/worker
+    env_file: ./apps/worker/.env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
