@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
+import { Alcance } from "@/components/project/alcance";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
@@ -133,6 +134,7 @@ function ProjectDetail() {
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
+          <TabsTrigger value="alcance">Alcance</TabsTrigger>
           {isAdmin && <TabsTrigger value="catastro">Catastro</TabsTrigger>}
         </TabsList>
         <TabsContent value="datos" className="pt-4">
@@ -149,6 +151,9 @@ function ProjectDetail() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="alcance" className="pt-4">
+          <Alcance projectId={project.id} />
         </TabsContent>
         {isAdmin && (
           <TabsContent value="catastro" className="pt-4">

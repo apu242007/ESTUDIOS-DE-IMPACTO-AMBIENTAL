@@ -14,6 +14,14 @@ export function ok(res: { error: PostgrestError | null }): void {
   if (res.error) throw new Error(res.error.message);
 }
 
+/** Para update/delete con .select("id"): falla si RLS filtró la fila y no cambió nada. */
+export function changed(res: { data: unknown[] | null; error: PostgrestError | null }): void {
+  if (res.error) throw new Error(res.error.message);
+  if (!res.data || res.data.length === 0) {
+    throw new Error("No se aplicó el cambio: no existe o no tenés permisos.");
+  }
+}
+
 export function parseAll<T>(schema: ZodType<T>, rows: unknown[]): T[] {
   return rows.map((r) => schema.parse(r));
 }

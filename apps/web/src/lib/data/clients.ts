@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import {
   clientRowSchema,
@@ -6,7 +7,7 @@ import {
   type ClientFormValues,
   type ClientRow,
 } from "@/lib/schemas";
-import { must, ok, parseAll } from "./util";
+import { changed, must, parseAll } from "./util";
 
 const LOGO_EXT = ["png", "jpg", "jpeg"] as const;
 
@@ -42,8 +43,12 @@ export async function saveClient(
   const supabase = createClient();
   const base = toRow(v);
   let clientId = id;
+  let oldLogo: string | null = null;
   if (id) {
-    ok(await supabase.from("clients").update(base).eq("id", id));
+    // el filtro por org_id + .select("id") garantiza que la fila existe en ESTA organización
+    const cur = await supabase.from("clients").select("id, logo_path").eq("id", id).eq("org_id", orgId).single();
+    oldLogo = z.object({ logo_path: z.string().nullable() }).parse(must(cur)).logo_path;
+    changed(await supabase.from("clients").update(base).eq("id", id).eq("org_id", orgId).select("id"));
   } else {
     const res = await supabase
       .from("clients")
@@ -60,14 +65,19 @@ export async function saveClient(
     const path = `${orgId}/logos/${crypto.randomUUID()}.${ext}`;
     const up = await supabase.storage.from("project-files").upload(path, logo, { upsert: false });
     if (up.error) throw new Error(up.error.message);
-    ok(await supabase.from("clients").update({ logo_path: path }).eq("id", clientId));
+    const upd = await supabase.from("clients").update({ logo_path: path }).eq("id", clientId).select("id");
+    if (upd.error || !upd.data || upd.data.length === 0) {
+      await supabase.storage.from("project-files").remove([path]); // compensación: sin huérfanos
+      throw new Error(upd.error?.message ?? "No se pudo guardar el logo");
+    }
+    if (oldLogo) await supabase.storage.from("project-files").remove([oldLogo]);
   }
   return clientId as string;
 }
 
 export async function deleteClient(id: string): Promise<void> {
   // projects.client_id es ON DELETE RESTRICT: si tiene proyectos, falla con mensaje de FK
-  const res = await createClient().from("clients").delete().eq("id", id);
+  const res = await createClient().from("clients").delete().eq("id", id).select("id");
   if (res.error) {
     throw new Error(
       res.error.code === "23503"
@@ -75,6 +85,7 @@ export async function deleteClient(id: string): Promise<void> {
         : res.error.message,
     );
   }
+  changed(res);
 }
 
 export async function signedLogoUrl(path: string): Promise<string | null> {

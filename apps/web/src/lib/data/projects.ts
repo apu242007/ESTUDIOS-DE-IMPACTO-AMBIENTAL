@@ -8,7 +8,7 @@ import {
   type ProjectFormValues,
   type ProjectRow,
 } from "@/lib/schemas";
-import { must, ok, parseAll } from "./util";
+import { changed, must, ok, parseAll } from "./util";
 
 export async function listProjects(orgId: string): Promise<ProjectRow[]> {
   const res = await createClient()
@@ -53,7 +53,7 @@ export async function saveProject(
 ): Promise<string> {
   const supabase = createClient();
   if (id) {
-    ok(await supabase.from("projects").update(toRow(v)).eq("id", id));
+    changed(await supabase.from("projects").update(toRow(v)).eq("id", id).select("id"));
     return id;
   }
   const res = await supabase
@@ -64,42 +64,10 @@ export async function saveProject(
   return projectRowSchema.pick({ id: true }).parse(must(res)).id;
 }
 
-/** Copia el proyecto y sus obras (no fotos ni relevamiento). */
+/** Copia el proyecto y sus obras (no fotos ni relevamiento) en una sola transacción de base. */
 export async function duplicateProject(projectId: string): Promise<string> {
-  const supabase = createClient();
-  const src = await getProject(projectId);
-  const created = await supabase
-    .from("projects")
-    .insert({
-      org_id: src.org_id,
-      client_id: src.client_id,
-      name: `${src.name} (copia)`,
-      code: src.code,
-      doc_type: src.doc_type,
-      field_area: src.field_area,
-      province: src.province,
-      applicant: src.applicant,
-      consultant: src.consultant,
-      crs_epsg: src.crs_epsg,
-      thresholds: src.thresholds,
-      status: "borrador",
-    })
-    .select("id")
-    .single();
-  const newId = projectRowSchema.pick({ id: true }).parse(must(created)).id;
-
-  const worksRes = await supabase.from("works").select("*").eq("project_id", projectId);
-  const works = must(worksRes) as Record<string, unknown>[];
-  if (works.length > 0) {
-    const copies = works.map((w) => {
-      // se descartan id, org_id y medidas calculadas: las regenera la base
-      const rest = { ...w };
-      for (const k of ["id", "org_id", "created_at", "geom_length_m", "geom_area_m2"]) delete rest[k];
-      return { ...rest, project_id: newId };
-    });
-    ok(await supabase.from("works").insert(copies));
-  }
-  return newId;
+  const res = await createClient().rpc("duplicate_project", { p_src: projectId });
+  return String(must(res));
 }
 
 // ---------- Catastro (solo admin, lo fuerza la RLS) ----------
@@ -129,5 +97,5 @@ export async function addCadastre(
 }
 
 export async function deleteCadastre(id: string): Promise<void> {
-  ok(await createClient().from("cadastre_data").delete().eq("id", id));
+  changed(await createClient().from("cadastre_data").delete().eq("id", id).select("id"));
 }

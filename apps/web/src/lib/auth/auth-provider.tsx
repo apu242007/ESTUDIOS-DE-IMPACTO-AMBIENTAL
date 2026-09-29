@@ -43,9 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [orgId, setOrgIdState] = useState<string | null>(null);
 
   const refreshMemberships = useCallback(async (): Promise<Membership[]> => {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) return [];
     const { data, error } = await supabase
       .from("memberships")
-      .select("org_id, role, organizations(name)");
+      .select("org_id, role, organizations(name)")
+      .eq("user_id", uid);
     if (error) throw new Error(error.message);
     const list = parseAll(membershipRowSchema, data ?? []).map((m) => ({
       org_id: m.org_id,
@@ -62,20 +66,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let alive = true;
+    let gen = 0; // solo la carga más reciente puede dejar el estado final
     const load = async (s: Session | null) => {
+      const mine = ++gen;
       if (!alive) return;
       setSession(s);
       if (s) {
         try {
           await refreshMemberships();
         } catch {
-          setMemberships([]);
+          if (mine === gen) setMemberships([]);
         }
       } else {
         setMemberships([]);
         setOrgIdState(null);
       }
-      if (alive) setLoading(false);
+      if (alive && mine === gen) setLoading(false);
     };
     void supabase.auth.getSession().then(({ data }) => load(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {

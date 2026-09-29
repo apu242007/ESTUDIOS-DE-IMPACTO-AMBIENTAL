@@ -6,7 +6,7 @@ import {
   type MemberRow,
   type Role,
 } from "@/lib/schemas";
-import { must, ok, parseAll } from "./util";
+import { changed, must, ok, parseAll } from "./util";
 
 // ---------- Usuarios ----------
 export async function listMembers(orgId: string): Promise<MemberRow[]> {
@@ -19,17 +19,20 @@ export async function addMember(orgId: string, email: string, role: Role): Promi
 }
 
 export async function changeRole(orgId: string, userId: string, role: Role): Promise<void> {
-  ok(
+  changed(
     await createClient()
       .from("memberships")
       .update({ role })
       .eq("org_id", orgId)
-      .eq("user_id", userId),
+      .eq("user_id", userId)
+      .select("user_id"),
   );
 }
 
 export async function removeMember(orgId: string, userId: string): Promise<void> {
-  ok(await createClient().from("memberships").delete().eq("org_id", orgId).eq("user_id", userId));
+  changed(
+    await createClient().from("memberships").delete().eq("org_id", orgId).eq("user_id", userId).select("user_id"),
+  );
 }
 
 export async function createOrganization(name: string): Promise<string> {
@@ -57,9 +60,9 @@ export async function addCode(orgId: string, code: string, meaning: string, sort
 }
 
 export async function updateCode(id: string, meaning: string) {
-  ok(await createClient().from("catalog_codes").update({ meaning: meaning.trim() }).eq("id", id));
+  changed(await createClient().from("catalog_codes").update({ meaning: meaning.trim() }).eq("id", id).select("id"));
 }
 
 export async function deleteCode(id: string) {
-  ok(await createClient().from("catalog_codes").delete().eq("id", id));
+  changed(await createClient().from("catalog_codes").delete().eq("id", id).select("id"));
 }
