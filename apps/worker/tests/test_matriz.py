@@ -8,7 +8,7 @@ from app.core.matriz_sql import project_impacts_sql, seed_sql, verify_sql
 XLSX = Path(__file__).resolve().parents[3] / "fixtures" / "excel" / "2947-26_Matriz_YB.xlsx"
 needs_excel = pytest.mark.skipif(not XLSX.exists(), reason="falta fixtures/excel/2947-26_Matriz_YB.xlsx")
 
-ORG = "0fb59293-b6ec-4ccf-9c1d-2f08066c698d"
+ORG = "00000000-0000-0000-0000-00000000000a"
 
 
 # --- fórmula y utilidades (no necesitan el Excel)
@@ -90,8 +90,8 @@ def test_sql_de_verificacion_no_deja_datos() -> None:
 
 @needs_excel
 def test_sql_de_matriz_de_proyecto_carga_las_132_celdas_y_es_idempotente() -> None:
-    sql = project_impacts_sql(parse_matriz(XLSX), "9a2456f0-2450-4f09-94f0-9583babe0b18")
+    sql = project_impacts_sql(parse_matriz(XLSX), "00000000-0000-0000-0000-00000000000b")
     assert sql.count("::jsonb") == 132
     assert "on conflict (project_id, action_id, factor_id) do update" in sql
-    assert "join public.projects p on p.id = '9a2456f0-2450-4f09-94f0-9583babe0b18'" in sql
+    assert "join public.projects p on p.id = '00000000-0000-0000-0000-00000000000b'" in sql
     assert "drop " not in sql.lower() and "delete " not in sql.lower()
