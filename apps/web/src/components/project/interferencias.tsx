@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadInterferencias } from "@/lib/data/interferencias";
 import { toCsv } from "@/lib/interferencias";
+import { Cruces } from "./cruces";
 
 export function Interferencias({ orgId, projectId }: { orgId: string; projectId: string }) {
   const { data, isLoading, error } = useQuery({
@@ -53,6 +54,8 @@ export function Interferencias({ orgId, projectId }: { orgId: string; projectId:
       <p className="max-w-prose text-sm text-muted-foreground">
         X es el norte e Y el este (POSGAR 94 faja 2, EPSG:22182). Latitud y longitud en WGS84.
       </p>
+
+      <Cruces orgId={orgId} projectId={projectId} />
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
