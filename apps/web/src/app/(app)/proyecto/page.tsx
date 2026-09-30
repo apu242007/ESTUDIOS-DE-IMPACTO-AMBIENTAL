@@ -17,7 +17,9 @@ import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
 import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
+import { Fotos } from "@/components/project/fotos";
 import { Gps } from "@/components/project/gps";
+import { Interferencias } from "@/components/project/interferencias";
 import { Comparacion } from "@/components/project/comparacion";
 import { Mapa } from "@/components/project/mapa";
 import { Relevamiento } from "@/components/project/relevamiento";
@@ -229,6 +231,8 @@ function ProjectDetail() {
           {section === "gps" && <Gps orgId={orgId} projectId={project.id} />}
           {section === "comparacion" && <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />}
           {section === "mapa" && <Mapa projectId={project.id} />}
+          {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} />}
+          {section === "fotos" && <Fotos orgId={orgId} projectId={project.id} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
         </div>
       </div>

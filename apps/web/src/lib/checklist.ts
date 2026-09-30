@@ -2,7 +2,7 @@
 
 export type SectionId =
   | "resumen" | "datos" | "alcance" | "capas" | "catastro"
-  | "relevamiento" | "gps" | "comparacion" | "mapa";
+  | "relevamiento" | "gps" | "comparacion" | "mapa" | "interferencias" | "fotos";
 
 export type Counts = {
   applicantOk: boolean;
@@ -76,7 +76,7 @@ export function buildChecklist(c: Counts): CheckItem[] {
         : `${plural(sinGps, "waypoint sin posición GPS", "waypoints sin posición GPS")}.`,
     },
     {
-      id: "fotos", section: "relevamiento", label: "Fotos del relevamiento", done: c.photos > 0,
+      id: "fotos", section: "fotos", label: "Fotos del relevamiento", done: c.photos > 0,
       detail: c.photos > 0 ? `${plural(c.photos, "foto", "fotos")}.` : "Todavía no hay fotos.",
     },
   ];

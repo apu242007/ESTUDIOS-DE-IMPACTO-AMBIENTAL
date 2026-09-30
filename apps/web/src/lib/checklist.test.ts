@@ -45,10 +45,17 @@ describe("lista de chequeo", () => {
     expect(buildChecklist({ ...completo, waypointsMatched: 37 }).find((i) => i.id === "gps")!.detail).toContain("3 waypoints sin posición GPS");
   });
 
-  it("estado por sección: 'falta' gana si alguno de sus ítems falta", () => {
+  it("estado por sección: cada sección refleja sus propios ítems", () => {
     const s = sectionStatus(buildChecklist({ ...completo, photos: 0 }));
-    expect(s.relevamiento).toBe("falta"); // relevamiento ok pero fotos faltan
+    expect(s.fotos).toBe("falta");
+    expect(s.relevamiento).toBe("ok"); // las fichas están cerradas: las fotos ya no la arrastran
     expect(s.datos).toBe("ok");
+  });
+
+  it("'falta' gana si una sección tiene varios ítems y alguno falta", () => {
+    // 'comparacion' agrupa geometría de obras; con obras sin geometría queda en falta aunque haya obras
+    const s = sectionStatus(buildChecklist({ ...completo, worksWithGeom: 0 }));
+    expect(s.comparacion).toBe("falta");
   });
 
   it("singular y plural", () => {
