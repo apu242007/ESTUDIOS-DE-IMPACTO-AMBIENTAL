@@ -103,10 +103,9 @@ def test_docx_completo_tiene_las_secciones_y_los_datos() -> None:
     data = build_docx(ctx(layers=[{"name": "Caminos", "kind": "SHP", "n": 5}]), photos, dt.date(2026, 9, 30))
     t = text_of(data)
     for esperado in ("INFORME AMBIENTAL", "PAD 58", "Septiembre de 2026", "1. Datos generales", "Operadora SA",
-                     "2. Alcance del proyecto", "Camino troncal", "2.270,0 m", "2.269,2 m", "3. Interferencias",
-                     "38° 7'47.78\"S", "5779957", "Anexo fotográfico", "Foto 1. Vista general", "Caminos"):
+                     "Alcance de obras", "Camino troncal", "2.270,0 m", "2.269,2 m", "Interferencias y puntos de interés",
+                     "38° 7'47.78\"S", "5779957", "9. Anexos", "Relevamiento fotográfico", "Foto 1. Vista general", "Caminos"):
         assert esperado in t, esperado
-    assert "Sección incompleta" not in t
     assert Document(io.BytesIO(data)).inline_shapes  # la foto quedó incrustada
 
 

@@ -6,6 +6,7 @@ import io
 import re
 import shutil
 import subprocess
+import zipfile
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -88,7 +89,7 @@ def build_interferencias(waypoints: list[dict[str, Any]], codes: dict[str, str],
         ele = w.get("elevation_m")
         rows.append({"figura": figura, "lat": dlat, "lon": dlon, "x": round(x), "y": round(y),
                      "cota": None if ele is None else round(ele), "descripcion": desc,
-                     "_ficha": fichas.get(w.get("line_id")) or 0, "_num": w.get("number") or 0})
+                     "_lat": lat, "_lon": lon, "_ele": ele, "_ficha": fichas.get(w.get("line_id")) or 0, "_num": w.get("number") or 0})
     rows.sort(key=lambda r: (r["_ficha"], r["_num"]))
     return rows, sin
 
@@ -179,10 +180,91 @@ def _fecha(today: dt.date) -> str:
     return f"{MESES[today.month - 1].capitalize()} de {today.year}"
 
 
+def _draft_header(section: Any) -> None:
+    """Encabezado condicional: las versiones no aprobadas salen marcadas (la final, no)."""
+    p = section.header.paragraphs[0]
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = p.add_run("BORRADOR — versión sin aprobar")
+    r.bold = True
+    r.font.size = Pt(11)
+    r.font.color.rgb = RGBColor(0xB4, 0x23, 0x18)
+
+
+def _add_alcance(doc: Any, ctx: dict[str, Any]) -> None:
+    doc.add_heading("Alcance de obras", level=2)
+    if ctx["works"]:
+        _table(doc, ["Obra", "Tipo", "Declarado", "Medido en el relevamiento"], [
+            [w["name"], KIND_LABEL.get(w["kind"], w["kind"]),
+             _fmt_m(w.get("declared_length_m"), "m") if w.get("declared_length_m") is not None
+             else _fmt_m(w.get("declared_area_m2"), "m²"),
+             _fmt_m(w.get("geom_length_m"), "m") if w.get("geom_length_m") is not None
+             else _fmt_m(w.get("geom_area_m2"), "m²")] for w in ctx["works"]], [6, 3.5, 3, 3.5])
+        sin_geom = sum(1 for w in ctx["works"] if w.get("geom_length_m") is None and w.get("geom_area_m2") is None)
+        if sin_geom:
+            _pending(doc, f"{sin_geom} obra(s) todavía sin geometría medida.")
+    else:
+        _pending(doc, "no se cargaron las obras del alcance.")
+
+
+def _add_interferencias(doc: Any, ctx: dict[str, Any]) -> None:
+    doc.add_heading("Interferencias y puntos de interés", level=2)
+    if ctx["interferencias"]:
+        _table(doc, ["Figura", "Latitud", "Longitud", "X", "Y", "Cota", "Descripción"],
+               [[r["figura"], r["lat"], r["lon"], str(r["x"]), str(r["y"]), "" if r["cota"] is None else str(r["cota"]),
+                 r["descripcion"]] for r in ctx["interferencias"]], [2.4, 2.4, 2.4, 1.7, 1.7, 1.1, 4.3])
+        doc.add_paragraph("Coordenadas planas POSGAR 94 / Argentina faja 2 (EPSG:22182): X = norte, Y = este.").runs[0].font.size = Pt(8.5)
+    else:
+        _pending(doc, "no hay waypoints con posición.")
+    if ctx["interferencias_sin_posicion"]:
+        _pending(doc, f"{ctx['interferencias_sin_posicion']} waypoint(s) sin posición no figuran en la tabla.")
+
+
+def _add_fotos(doc: Any, photos: list[dict[str, Any]]) -> None:
+    doc.add_heading("Relevamiento fotográfico", level=2)
+    if not photos:
+        _pending(doc, "no hay fotos cargadas.")
+    order: list[str] = []
+    for ph in photos:
+        if ph["category"] not in order:
+            order.append(ph["category"])
+    n_foto = 0
+    for cat in order:
+        group = [ph for ph in photos if ph["category"] == cat]
+        doc.add_heading(group[0]["label"], level=3)
+        for i in range(0, len(group), 2):
+            tbl = doc.add_table(rows=1, cols=2)
+            for j, ph in enumerate(group[i:i + 2]):
+                n_foto += 1
+                cell = tbl.rows[0].cells[j]
+                cell.text = ""
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cell.paragraphs[0].add_run().add_picture(io.BytesIO(ph["jpeg"]), width=Cm(7.6))
+                cap = cell.add_paragraph(f"Foto {n_foto}." + (f" {ph['caption']}" if ph.get("caption") else ""))
+                cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cap.runs[0].font.size = Pt(8.5)
+
+
+def _add_georef(doc: Any, ctx: dict[str, Any]) -> None:
+    doc.add_heading("Archivos georreferenciados", level=2)
+    files = ctx["layers"] + ctx["gps"]
+    if files:
+        _table(doc, ["Archivo", "Tipo", "Elementos / puntos"], [[f["name"], f["kind"], str(f.get("n") or "—")] for f in files], [8, 3, 5])
+    else:
+        _pending(doc, "no hay capas ni archivos de GPS importados.")
+
+
 def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date | None = None) -> bytes:
-    """Informe base (sin plantilla del cliente). `photos`: [{category, label, caption, jpeg}] ya comprimidas."""
+    """Informe completo (sin plantilla del cliente), en el orden del IA real. `photos` ya comprimidas.
+
+    ctx["final"] = True → sin encabezado BORRADOR. Los avisos (variables sin resolver) quedan en ctx["_warn"].
+    """
+    from app.core import report_sections as rs
+    from app.core.text_template import project_vars
+
     today = today or dt.date.today()
     p = ctx["project"]
+    ctx.setdefault("vars", project_vars(p, (ctx.get("client") or {}).get("name")))
+    warn: list[str] = ctx.setdefault("_warn", [])
     doc = Document()
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Cm(21), Cm(29.7)
@@ -193,6 +275,8 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
     st.font.name = "Arial"
     st.font.size = Pt(10.5)
     _page_number_footer(sec)
+    if not ctx.get("final"):
+        _draft_header(sec)
 
     # --- carátula
     for _ in range(4):
@@ -223,6 +307,15 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
         q.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
 
+    # --- contenido (índice estático: sin números de página, para que sea igual en Word y en el PDF)
+    capitulos = ["Datos generales", "Resumen ejecutivo", "Ubicación y descripción general del proyecto",
+                 "Descripción general del ambiente", "Identificación de impactos y efectos ambientales",
+                 "Declaración de impacto ambiental", "Plan de gestión ambiental", "Referencias", "Anexos"]
+    doc.add_heading("Contenido", level=1)
+    for i, c in enumerate(capitulos, 1):
+        doc.add_paragraph(f"{i}. {c}")
+    doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+
     # --- 1. datos generales
     doc.add_heading("1. Datos generales", level=1)
     app = p.get("applicant") or {}
@@ -239,65 +332,23 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
     if faltan:
         _pending(doc, "faltan " + ", ".join(faltan) + ".")
 
-    # --- 2. alcance
-    doc.add_heading("2. Alcance del proyecto", level=1)
-    if ctx["works"]:
-        _table(doc, ["Obra", "Tipo", "Declarado", "Medido en el relevamiento"], [
-            [w["name"], KIND_LABEL.get(w["kind"], w["kind"]),
-             _fmt_m(w.get("declared_length_m"), "m") if w.get("declared_length_m") is not None
-             else _fmt_m(w.get("declared_area_m2"), "m²"),
-             _fmt_m(w.get("geom_length_m"), "m") if w.get("geom_length_m") is not None
-             else _fmt_m(w.get("geom_area_m2"), "m²")] for w in ctx["works"]], [6, 3.5, 3, 3.5])
-        sin_geom = sum(1 for w in ctx["works"] if w.get("geom_length_m") is None and w.get("geom_area_m2") is None)
-        if sin_geom:
-            _pending(doc, f"{sin_geom} obra(s) todavía sin geometría medida.")
-    else:
-        _pending(doc, "no se cargaron las obras del alcance.")
+    # --- 2 a 8
+    rs.add_resumen(doc, ctx, 2, warn)
+    rs.add_ubicacion(doc, ctx, 3, warn)
+    _add_alcance(doc, ctx)
+    _add_interferencias(doc, ctx)
+    rs.add_ambiente(doc, ctx, 4, warn)
+    rs.add_impactos(doc, ctx, 5, warn)
+    rs.add_declaracion(doc, ctx, 6, warn)
+    rs.add_pga(doc, ctx, 7, warn)
+    rs.add_referencias(doc, ctx, 8, warn)
 
-    # --- 3. interferencias
-    doc.add_heading("3. Interferencias", level=1)
-    if ctx["interferencias"]:
-        _table(doc, ["Figura", "Latitud", "Longitud", "X", "Y", "Cota", "Descripción"],
-               [[r["figura"], r["lat"], r["lon"], str(r["x"]), str(r["y"]), "" if r["cota"] is None else str(r["cota"]),
-                 r["descripcion"]] for r in ctx["interferencias"]], [2.4, 2.4, 2.4, 1.7, 1.7, 1.1, 4.3])
-        doc.add_paragraph("Coordenadas planas POSGAR 94 / Argentina faja 2 (EPSG:22182): X = norte, Y = este.").runs[0].font.size = Pt(8.5)
-    else:
-        _pending(doc, "no hay waypoints con posición.")
-    if ctx["interferencias_sin_posicion"]:
-        _pending(doc, f"{ctx['interferencias_sin_posicion']} waypoint(s) sin posición no figuran en la tabla.")
-
-    # --- anexo fotográfico
+    # --- 9. anexos
     doc.add_page_break()
-    doc.add_heading("Anexo fotográfico", level=1)
-    if not photos:
-        _pending(doc, "no hay fotos cargadas.")
-    order: list[str] = []
-    for ph in photos:
-        if ph["category"] not in order:
-            order.append(ph["category"])
-    n_foto = 0
-    for cat in order:
-        group = [ph for ph in photos if ph["category"] == cat]
-        doc.add_heading(group[0]["label"], level=2)
-        for i in range(0, len(group), 2):
-            tbl = doc.add_table(rows=1, cols=2)
-            for j, ph in enumerate(group[i:i + 2]):
-                n_foto += 1
-                cell = tbl.rows[0].cells[j]
-                cell.text = ""
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                cell.paragraphs[0].add_run().add_picture(io.BytesIO(ph["jpeg"]), width=Cm(7.6))
-                cap = cell.add_paragraph(f"Foto {n_foto}." + (f" {ph['caption']}" if ph.get("caption") else ""))
-                cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                cap.runs[0].font.size = Pt(8.5)
-
-    # --- anexo de archivos georreferenciados
-    doc.add_heading("Anexo de archivos georreferenciados", level=1)
-    files = ctx["layers"] + ctx["gps"]
-    if files:
-        _table(doc, ["Archivo", "Tipo", "Elementos / puntos"], [[f["name"], f["kind"], str(f.get("n") or "—")] for f in files], [8, 3, 5])
-    else:
-        _pending(doc, "no hay capas ni archivos de GPS importados.")
+    doc.add_heading("9. Anexos", level=1)
+    _add_fotos(doc, photos)
+    rs.add_anexo_matriz(doc, ctx, warn)   # hoja horizontal; vuelve a vertical
+    _add_georef(doc, ctx)
 
     buf = io.BytesIO()
     doc.save(buf)
@@ -384,15 +435,55 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
         sel("waypoints_view", "id, line_id, number, code, description, views, lat, lon, elevation_m", project_id=pid),
         codes, fichas, tpl_rows[0]["template"] if tpl_rows else None)
     cats = sel("catalog_photo_categories", "key, label, sort_order", org_id=org)
+
+    # --- contenido de las secciones (catálogos + lo que el profesional eligió o ajustó en este proyecto)
+    from app.core.text_template import project_vars
+
+    blocks = sel("catalog_text_blocks", "key, scope, title, template, sort_order", org_id=org)
+    penv = {r["item_id"]: r for r in sel("project_environment", "item_id, included, body_override", project_id=pid)}
+    environment = []
+    for it in (sel("catalog_environment", "id, zone_key, section, label, body, sort_order", org_id=org, zone_key=proj["zone_key"])
+               if proj.get("zone_key") else []):
+        row = penv.get(it["id"])
+        if row is not None and not row["included"]:
+            continue
+        environment.append({"section": it["section"], "label": it["label"], "sort_order": it["sort_order"],
+                            "body": (row or {}).get("body_override") or it["body"]})
+    environment.sort(key=lambda x: x["sort_order"] or 0)
+    measures = sel("catalog_measures", "id, general, stage, action, resource, timing, responsible, follow_up, body, sort_order", org_id=org)
+    chosen = {r["measure_id"]: r for r in sel("project_measures", "measure_id, selected, responsible, timing", project_id=pid) if r["selected"]}
+    pga = [{"stage": m["stage"], "action": m["action"], "measure": m["body"], "resource": m["resource"], "follow_up": m["follow_up"],
+            "timing": chosen[m["id"]].get("timing") or m["timing"], "responsible": chosen[m["id"]].get("responsible") or m["responsible"],
+            "sort_order": m["sort_order"]}
+           for m in sorted(measures, key=lambda x: x["sort_order"] or 0) if not m["general"] and m["id"] in chosen]
+    wells = []
+    for w in sel("wells_geojson", "name, geojson", project_id=pid):
+        g = w.get("geojson") or {}
+        if g.get("type") == "Point" and g.get("coordinates"):
+            wells.append({"name": w["name"], "lon": g["coordinates"][0], "lat": g["coordinates"][1]})
     return {
+        "vars": project_vars(proj, client_row.get("name")),
+        "sections": [b for b in blocks if b["scope"] == "seccion"],
+        "declarations": [b for b in blocks if b["scope"] == "declaracion"],
+        "section_overrides": {r["key"]: r["body"] for r in sel("project_section_texts", "key, body", project_id=pid)},
+        "decl_overrides": {r["factor_id"]: r["body_override"] for r in sel("project_declarations", "factor_id, body_override", project_id=pid)},
+        "factors": sel("catalog_impact_factors", "id, code, name, medio, uip, component, sort_order", org_id=org),
+        "actions": sel("catalog_impact_actions", "id, code, name, stage, sort_order", org_id=org),
+        "impacts": sel("project_impacts", "action_id, factor_id, sign, importance, category", project_id=pid),
+        "environment": environment,
+        "pga_general": [m["body"] for m in sorted(measures, key=lambda x: x["sort_order"] or 0) if m["general"]],
+        "pga": pga,
+        "wells": wells,
+        "final": bool((job.get("params") or {}).get("final")),
         "project": proj, "client": client_row,
         "works": sel("works_compare", "name, kind, declared_length_m, declared_area_m2, geom_length_m, geom_area_m2, sort_order", project_id=pid),
         "interferencias": inter, "interferencias_sin_posicion": sin,
         "photos": sel("photos", "id, category, path_original, caption, taken_at", project_id=pid),
         "photo_categories": sorted(cats, key=lambda c: c.get("sort_order") or 0),
-        "layers": [{"name": l["base_name"], "kind": str(l["format"]).upper(), "n": l.get("n_features")}
-                   for l in sel("layer_imports", "base_name, format, n_features, status", project_id=pid) if l["status"] in ("listo", "incompleto")],
-        "gps": [{"name": Path(g["file_path"]).name, "kind": str(g["file_kind"]).upper(), "n": g.get("n_points")}
+        "layers": [{"name": l["base_name"], "kind": str(l["format"]).upper(), "n": l.get("n_features"),
+                    "files": [f["path"] for f in (l.get("files") or []) if f.get("path")]}
+                   for l in sel("layer_imports", "base_name, format, n_features, status, files", project_id=pid) if l["status"] in ("listo", "incompleto")],
+        "gps": [{"name": Path(g["file_path"]).name, "kind": str(g["file_kind"]).upper(), "n": g.get("n_points"), "files": [g["file_path"]]}
                 for g in sel("gps_imports", "file_path, file_kind, n_points, status", project_id=pid) if g["status"] == "listo"],
     }
 
@@ -411,6 +502,42 @@ def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: 
         except Exception as e:  # una foto rota no debe tirar todo el informe: se informa en el log
             log.append(f"Foto omitida ({ph['path_original']}): {e}")
     return out
+
+
+def interferencias_kmz(rows: list[dict[str, Any]]) -> bytes:
+    """KMZ con las interferencias (una marca por fila de la tabla). Solo puntos con posición."""
+    from xml.sax.saxutils import escape
+
+    marks = []
+    for r in rows:
+        if r.get("_lat") is None or r.get("_lon") is None:
+            continue
+        ele = r.get("_ele") or 0
+        marks.append(f"<Placemark><name>{escape(r['figura'])}</name><description>{escape(r['descripcion'])}</description>"
+                     f"<Point><coordinates>{r['_lon']},{r['_lat']},{ele}</coordinates></Point></Placemark>")
+    kml = ('<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Interferencias</name>'
+           + "".join(marks) + "</Document></kml>")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("doc.kml", kml)
+    return buf.getvalue()
+
+
+def make_package(client: Any, ctx: dict[str, Any], docx: bytes, pdf: bytes | None, log: list[str]) -> bytes:
+    """Paquete final para enviar por fuera de la app: informe aprobado + KMZ de interferencias + anexos georreferenciados."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("Informe.docx", docx)
+        if pdf:
+            z.writestr("Informe.pdf", pdf)
+        z.writestr("Interferencias.kmz", interferencias_kmz(ctx["interferencias"]))
+        for f in ctx["layers"] + ctx["gps"]:
+            for path in f.get("files") or []:
+                try:
+                    z.writestr(f"Anexos georreferenciados/{Path(path).name}", client.storage.from_(BUCKET).download(path))
+                except Exception as e:  # un archivo que falta no impide entregar el resto: se avisa
+                    log.append(f"Paquete: no se pudo incluir {Path(path).name} ({e})")
+    return buf.getvalue()
 
 
 def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run) -> None:
@@ -433,12 +560,14 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
 
         base = f"{job['org_id']}/{job['project_id']}/docs/{job['id']}"
         pdf_path: str | None = None
+        pdf_bytes: bytes | None = None
         with tempfile.TemporaryDirectory() as tmp:
             docx = Path(tmp) / "informe.docx"
             docx.write_bytes(docx_bytes)
             try:
                 pdf = docx_to_pdf(docx, run)
-                client.storage.from_(BUCKET).upload(f"{base}/informe.pdf", pdf.read_bytes(),
+                pdf_bytes = pdf.read_bytes()
+                client.storage.from_(BUCKET).upload(f"{base}/informe.pdf", pdf_bytes,
                                                     {"content-type": "application/pdf", "upsert": "true"})
                 pdf_path = f"{base}/informe.pdf"
             except RuntimeError as e:
@@ -447,6 +576,12 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             f"{base}/informe.docx", docx_bytes,
             {"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "upsert": "true"})
         upd = {"status": "listo", "docx_path": f"{base}/informe.docx", "pdf_path": pdf_path}
+        log.extend(ctx.get("_warn") or [])
+        log.append("Versión FINAL (aprobada): sin marca de borrador." if ctx.get("final") else "Versión BORRADOR: sin aprobar.")
+        if ctx.get("final"):
+            client.storage.from_(BUCKET).upload(f"{base}/paquete_final.zip", make_package(client, ctx, docx_bytes, pdf_bytes, log),
+                                                {"content-type": "application/zip", "upsert": "true"})
+            upd["package_path"] = f"{base}/paquete_final.zip"
     except (ValueError, RuntimeError) as e:
         log.append(str(e))
         upd = {"status": "error"}
