@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
+import { createWellsFromImport, linkFeature, listFeatures } from "@/lib/data/features";
 import { errMsg } from "@/lib/data/util";
+import { listWorks, type WorkRow } from "@/lib/data/works";
 import {
   deleteImport,
   listLayerImports,
@@ -54,6 +56,67 @@ function CrsConfirm({ imp, onConfirm, busy }: { imp: LayerImport; onConfirm: (ep
   );
 }
 
+function Elementos({ imp, projectId, works }: { imp: LayerImport; projectId: string; works: WorkRow[] }) {
+  const qc = useQueryClient();
+  const { data: feats = [], isLoading } = useQuery({ queryKey: ["features", imp.id], queryFn: () => listFeatures(imp.id) });
+  const refreshAll = () => {
+    void qc.invalidateQueries({ queryKey: ["features", imp.id] });
+    void qc.invalidateQueries({ queryKey: ["works", projectId] });
+    void qc.invalidateQueries({ queryKey: ["works-compare", projectId] });
+    void qc.invalidateQueries({ queryKey: ["map", projectId] });
+  };
+  const link = useMutation({
+    mutationFn: (a: { id: string; workId: string | null }) => linkFeature(a.id, a.workId),
+    onSuccess: refreshAll,
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const wells = useMutation({
+    mutationFn: () => createWellsFromImport(imp.id),
+    onSuccess: (n) => {
+      toast.success(n === 0 ? "No hay pozos nuevos para crear" : `${n} pozo(s) creados`);
+      refreshAll();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const hasPoints = feats.some((f) => f.length_m === null && f.area_m2 === null);
+
+  return (
+    <div className="grid gap-2 border-t pt-3">
+      {hasPoints && (
+        <div>
+          <Button variant="outline" className="h-11" disabled={wells.isPending} onClick={() => wells.mutate()}>
+            Crear pozos desde esta capa
+          </Button>
+        </div>
+      )}
+      {isLoading && <p className="text-sm">Cargando elementos…</p>}
+      {feats.map((f) => (
+        <div key={f.id} className="grid gap-2 sm:grid-cols-[1fr_9rem_18rem] sm:items-center">
+          <span className="text-sm font-medium">{f.name ?? "(sin nombre)"}</span>
+          <span className="text-sm text-muted-foreground">
+            {f.length_m !== null && `${f.length_m.toLocaleString("es-AR", { maximumFractionDigits: 1 })} m`}
+            {f.area_m2 !== null && `${f.area_m2.toLocaleString("es-AR", { maximumFractionDigits: 0 })} m²`}
+            {f.length_m === null && f.area_m2 === null && "punto"}
+          </span>
+          <NativeSelect
+            className="h-11"
+            aria-label={`Obra de ${f.name ?? "elemento"}`}
+            value={f.work_id ?? ""}
+            onChange={(e) => link.mutate({ id: f.id, workId: e.target.value || null })}
+          >
+            <option value="">Sin vincular</option>
+            {works.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Capas({ orgId, projectId }: { orgId: string; projectId: string }) {
   const qc = useQueryClient();
   const key = ["layer-imports", projectId];
@@ -87,6 +150,8 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
     onSuccess: refresh,
     onError: fail,
   });
+  const { data: works = [] } = useQuery({ queryKey: ["works", projectId], queryFn: () => listWorks(projectId) });
+  const [open, setOpen] = useState<string | null>(null);
   const del = useMutation({ mutationFn: deleteImport, onSuccess: refresh, onError: fail });
 
   return (
@@ -149,6 +214,11 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
                   Reprocesar
                 </Button>
               )}
+              {(imp.status === "listo" || imp.status === "incompleto") && (
+                <Button variant="outline" className="h-11" onClick={() => setOpen(open === imp.id ? null : imp.id)}>
+                  {open === imp.id ? "Ocultar elementos" : "Ver elementos y vincular a obras"}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="h-11"
@@ -160,6 +230,7 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
                 Quitar
               </Button>
             </div>
+            {open === imp.id && <Elementos imp={imp} projectId={projectId} works={works} />}
           </CardContent>
         </Card>
       ))}

@@ -18,6 +18,9 @@ import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
 import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
+import { Comparacion } from "@/components/project/comparacion";
+import { Mapa } from "@/components/project/mapa";
+import { parseThresholds } from "@/lib/threshold";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
@@ -137,6 +140,8 @@ function ProjectDetail() {
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="alcance">Alcance</TabsTrigger>
           <TabsTrigger value="capas">Capas</TabsTrigger>
+          <TabsTrigger value="comparacion">Comparación</TabsTrigger>
+          <TabsTrigger value="mapa">Mapa</TabsTrigger>
           {isAdmin && <TabsTrigger value="catastro">Catastro</TabsTrigger>}
         </TabsList>
         <TabsContent value="datos" className="pt-4">
@@ -159,6 +164,12 @@ function ProjectDetail() {
         </TabsContent>
         <TabsContent value="capas" className="pt-4">
           <Capas orgId={orgId} projectId={project.id} />
+        </TabsContent>
+        <TabsContent value="comparacion" className="pt-4">
+          <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />
+        </TabsContent>
+        <TabsContent value="mapa" className="pt-4">
+          {tab === "mapa" && <Mapa projectId={project.id} />}
         </TabsContent>
         {isAdmin && (
           <TabsContent value="catastro" className="pt-4">
