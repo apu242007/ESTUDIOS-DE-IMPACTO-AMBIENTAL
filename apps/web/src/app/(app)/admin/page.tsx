@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Field } from "@/components/field";
+import { Catalogos } from "@/components/admin/catalogos/catalogos";
 import { useAuth } from "@/lib/auth/auth-provider";
 import {
   addCode,
@@ -206,23 +207,27 @@ function Siglas({ orgId }: { orgId: string }) {
 
 export default function AdminPage() {
   const { orgId, isAdmin, session } = useAuth();
-  const [tab, setTab] = useState("usuarios");
-  if (!isAdmin || !orgId || !session) {
-    return <p role="alert">Esta sección es solo para administradores.</p>;
+  const [tab, setTab] = useState(isAdmin ? "usuarios" : "catalogos");
+  if (!orgId || !session) {
+    return <p role="alert">Necesitás una organización activa para ver esta sección.</p>;
   }
   return (
     <div className="grid gap-4">
       <h1 className="text-2xl font-bold">Administración</h1>
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
         <TabsList>
-          <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
-          <TabsTrigger value="siglas">Siglas</TabsTrigger>
+          {isAdmin && <TabsTrigger value="usuarios">Usuarios</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="siglas">Siglas</TabsTrigger>}
+          <TabsTrigger value="catalogos">Catálogos</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios" className="pt-4">
           <Usuarios orgId={orgId} myId={session.user.id} />
         </TabsContent>
         <TabsContent value="siglas" className="pt-4">
           <Siglas orgId={orgId} />
+        </TabsContent>
+        <TabsContent value="catalogos" className="pt-4">
+          <Catalogos orgId={orgId} />
         </TabsContent>
       </Tabs>
     </div>
