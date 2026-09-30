@@ -28,6 +28,7 @@ export const GROUPS: Group[] = [
       { id: "comparacion", label: "Comparación" },
       { id: "mapa", label: "Mapa" },
       { id: "interferencias", label: "Interferencias" },
+      { id: "impactos", label: "Impactos" },
       { id: "fotos", label: "Fotos" },
     ],
   },

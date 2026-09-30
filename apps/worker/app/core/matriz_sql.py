@@ -51,6 +51,28 @@ def seed_sql(m: Matriz, org: str) -> str:
     return "\n".join(out) + "\n"
 
 
+def project_impacts_sql(m: Matriz, project: str) -> str:
+    """Carga en un proyecto los signos y valores reales del Excel (la org sale del proyecto). Requiere los catálogos
+    ya sembrados (seed_sql). Idempotente: pisa las celdas existentes."""
+    ac, fc = codes(m)
+
+    def attrs_json(a: dict[str, int]) -> str:
+        return "{" + ",".join(f'"{k}":{v}' for k, v in a.items()) + "}"
+
+    vals = ",\n  ".join(
+        f"({q(fc[f.name])}, {q(ac[(c.stage, c.action)])}, {c.sign}, '{attrs_json(c.attrs)}'::jsonb)"
+        for f in m.factors for c in f.cells)
+    return (
+        "-- Matriz de impactos del proyecto (valores del Excel). Requiere los catálogos sembrados. Idempotente.\n"
+        "insert into public.project_impacts(project_id, action_id, factor_id, sign, attrs)\n"
+        f"select p.id, a.id, f.id, v.sign, v.attrs\n  from (values\n  {vals}\n  ) as v(fcode, acode, sign, attrs)\n"
+        f"  join public.projects p on p.id = {q(project)}\n"
+        "  join public.catalog_impact_actions a on a.org_id = p.org_id and a.code = v.acode\n"
+        "  join public.catalog_impact_factors f on f.org_id = p.org_id and f.code = v.fcode\n"
+        "on conflict (project_id, action_id, factor_id) do update set sign = excluded.sign, attrs = excluded.attrs;\n"
+    )
+
+
 def verify_sql(m: Matriz) -> str:
     """Bloque DO que crea todo en una organización temporal, inserta las celdas reales en project_impacts y compara
     importancia con la del Excel. Termina en excepción MATRIZ_RESULT: no deja nada en la base."""

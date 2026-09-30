@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.core.matriz import ATTRS, attr_options, importance, norm, parse_matriz
-from app.core.matriz_sql import seed_sql, verify_sql
+from app.core.matriz_sql import project_impacts_sql, seed_sql, verify_sql
 
 XLSX = Path(__file__).resolve().parents[3] / "fixtures" / "excel" / "2947-26_Matriz_YB.xlsx"
 needs_excel = pytest.mark.skipif(not XLSX.exists(), reason="falta fixtures/excel/2947-26_Matriz_YB.xlsx")
@@ -86,3 +86,12 @@ def test_sql_de_carga_es_idempotente_y_comilla_segura() -> None:
 def test_sql_de_verificacion_no_deja_datos() -> None:
     sql = verify_sql(parse_matriz(XLSX))
     assert "MATRIZ_RESULT" in sql and sql.count("::jsonb") == 132
+
+
+@needs_excel
+def test_sql_de_matriz_de_proyecto_carga_las_132_celdas_y_es_idempotente() -> None:
+    sql = project_impacts_sql(parse_matriz(XLSX), "9a2456f0-2450-4f09-94f0-9583babe0b18")
+    assert sql.count("::jsonb") == 132
+    assert "on conflict (project_id, action_id, factor_id) do update" in sql
+    assert "join public.projects p on p.id = '9a2456f0-2450-4f09-94f0-9583babe0b18'" in sql
+    assert "drop " not in sql.lower() and "delete " not in sql.lower()

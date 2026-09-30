@@ -19,6 +19,7 @@ import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
 import { Fotos } from "@/components/project/fotos";
 import { Gps } from "@/components/project/gps";
+import { Impactos } from "@/components/project/impactos";
 import { Informe } from "@/components/project/informe";
 import { Interferencias } from "@/components/project/interferencias";
 import { Comparacion } from "@/components/project/comparacion";
@@ -234,6 +235,7 @@ function ProjectDetail() {
           {section === "mapa" && <Mapa projectId={project.id} />}
           {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} />}
           {section === "fotos" && <Fotos orgId={orgId} projectId={project.id} />}
+          {section === "impactos" && <Impactos orgId={orgId} projectId={project.id} />}
           {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
         </div>
