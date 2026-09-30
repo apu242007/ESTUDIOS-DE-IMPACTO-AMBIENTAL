@@ -20,6 +20,7 @@ import { Capas } from "@/components/project/capas";
 import { Fotos } from "@/components/project/fotos";
 import { Gps } from "@/components/project/gps";
 import { Ambiente } from "@/components/project/ambiente";
+import { Control } from "@/components/project/control";
 import { Declaracion } from "@/components/project/declaracion";
 import { Impactos } from "@/components/project/impactos";
 import { Pga } from "@/components/project/pga";
@@ -244,6 +245,7 @@ function ProjectDetail() {
           {section === "ambiente" && <Ambiente orgId={orgId} project={project} />}
           {section === "declaracion" && <Declaracion orgId={orgId} project={project} />}
           {section === "pga" && <Pga orgId={orgId} project={project} />}
+          {section === "control" && <Control orgId={orgId} project={project} onGo={go} />}
           {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} status={project.status} isAdmin={isAdmin} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
         </div>
