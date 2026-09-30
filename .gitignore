@@ -40,3 +40,7 @@ apps/web/public/swe-worker-*.js
 
 # worker de MapLibre copiado en predev/prebuild (scripts/copy-maplibre.mjs)
 apps/web/public/maplibre/
+
+# resultados de Playwright
+apps/web/test-results/
+apps/web/playwright-report/
