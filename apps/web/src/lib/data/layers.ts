@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { layerFormats, type LayerGroup } from "@/lib/layer-files";
-import { changed, must, ok, parseAll } from "./util";
+import { changed, must, parseAll } from "./util";
 
 const BUCKET = "project-files";
 
@@ -59,17 +59,19 @@ export async function uploadLayer(orgId: string, projectId: string, group: Layer
     }
     files.push({ path, ext: f.name.split(".").pop()!.toLowerCase(), size: f.size });
   }
-  ok(
-    await sb.from("layer_imports").insert({
-      id: importId,
-      project_id: projectId,
-      base_name: group.baseName,
-      format: group.format,
-      files,
-      missing: group.missing,
-      status: "pendiente",
-    }),
-  );
+  const ins = await sb.from("layer_imports").insert({
+    id: importId,
+    project_id: projectId,
+    base_name: group.baseName,
+    format: group.format,
+    files,
+    missing: group.missing,
+    status: "pendiente",
+  });
+  if (ins.error) {
+    await sb.storage.from(BUCKET).remove(files.map((x) => x.path)); // sin fila no hay quien limpie estos archivos
+    throw new Error(ins.error.message);
+  }
 }
 
 /** Reencola: confirma CRS (opcional) y vuelve a 'pendiente' (único cambio de estado permitido al usuario). */

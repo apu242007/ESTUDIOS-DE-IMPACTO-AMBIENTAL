@@ -17,8 +17,10 @@ grant execute on function public.recalc_work_geom(uuid) to authenticated;
 create or replace function public.sync_work_geom()
 returns trigger language plpgsql as $$
 begin
+  -- la obra anterior solo se recalcula si se soltó el elemento (cambió de obra o se borró); si la obra es la
+  -- misma y solo cambió la geometría, alcanza con el recálculo de abajo (una sola vez por fila)
   if tg_op in ('UPDATE','DELETE') and old.work_id is not null
-     and (tg_op = 'DELETE' or old.work_id is distinct from new.work_id or old.geom is distinct from new.geom) then
+     and (tg_op = 'DELETE' or old.work_id is distinct from new.work_id) then
     perform public.recalc_work_geom(old.work_id);
   end if;
   if tg_op in ('INSERT','UPDATE') and new.work_id is not null then
@@ -38,6 +40,7 @@ declare v_project uuid; v_order int; v_n int;
 begin
   select project_id into v_project from public.layer_imports where id = p_import;
   if v_project is null then raise exception 'capa inexistente o sin acceso'; end if;
+  perform pg_advisory_xact_lock(hashtext('wells:' || v_project::text));  -- evita duplicados/órdenes repetidos en llamadas simultáneas
   select coalesce(max(sort_order), 0) into v_order from public.wells where project_id = v_project;
 
   with pts as (
