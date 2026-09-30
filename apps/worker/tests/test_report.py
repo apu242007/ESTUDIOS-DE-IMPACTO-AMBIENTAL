@@ -217,3 +217,53 @@ def test_solo_la_version_final_genera_paquete(monkeypatch: pytest.MonkeyPatch) -
     assert final.updates[-1]["package_path"] == "o/p/docs/b2/paquete_final.zip" and "FINAL" in final.updates[-1]["log"]
     assert "o/p/docs/b2/paquete_final.zip" in final.uploads and "o/p/docs/b1/paquete_final.zip" not in borrador.uploads
     llamadas.append(True)
+
+
+# --- plantillas de cliente
+def test_datos_para_plantillas_traen_todo_el_contenido_ya_resuelto() -> None:
+    from app.core.report_sections import template_data
+    from app.core.text_template import project_vars
+
+    c = completo()
+    c["vars"] = project_vars(c["project"], "Operadora SA")
+    d = template_data(c)
+    assert d["borrador"] is True
+    assert d["secciones"]["resumen"][0]["texto"].startswith("El proyecto PAD 58 perfora")
+    assert d["ambiente"][0]["texto"] == "Formación Vaca Muerta en Bajada del Palo Oeste."
+    assert d["declaraciones"][0]["texto"] == "La calidad del aire en PAD 58 podría alterarse."
+    assert d["pga"]["generales"] == ["Se prohíbe la caza."]
+    assert d["pga"]["particulares"][0]["medida"] == "Circular por accesos permitidos en PAD 58."
+    assert d["matriz"]["acciones"][0]["codigo"] == "A01"
+    fila = next(f for f in d["matriz"]["filas"] if f["factor"] == "Calidad perceptible del aire")
+    assert fila["valores"] == ["−21", "−28"]
+    assert next(f for f in d["factores"] if f["codigo"] == "F01")["categoria_peor"] == "Moderado"
+    assert d["pozos"][0]["nombre"] == "VIS.Nq.BPO-2581(h)"
+    c["final"] = True
+    assert template_data(c)["borrador"] is False
+
+
+def test_plantilla_de_cliente_se_completa_con_los_marcadores_nuevos() -> None:
+    from app.jobs.docs import render_with_template
+
+    tpl = Document()
+    tpl.add_paragraph("{{ titulo }} — {{ proyecto.name }} ({{ variables.pad }})")
+    tpl.add_paragraph("{%p if borrador %}")
+    tpl.add_paragraph("BORRADOR")
+    tpl.add_paragraph("{%p endif %}")
+    tpl.add_paragraph("{%p for d in declaraciones %}")
+    tpl.add_paragraph("{{ d.titulo }}: {{ d.texto }}")
+    tpl.add_paragraph("{%p endfor %}")
+    tpl.add_paragraph("{%p for m in pga.particulares %}")
+    tpl.add_paragraph("{{ m.etapa }} / {{ m.medida }}")
+    tpl.add_paragraph("{%p endfor %}")
+    buf = io.BytesIO()
+    tpl.save(buf)
+
+    out = text_of(render_with_template(buf.getvalue(), completo(), []))
+    assert "INFORME AMBIENTAL — Perforación de 6 pozos en PAD58 (PAD 58)" in out
+    assert "BORRADOR" in out
+    assert "Aire – Afectación sobre la calidad perceptible del aire: La calidad del aire en PAD 58 podría alterarse." in out
+    assert "Construcción / Circular por accesos permitidos en PAD 58." in out
+    final = completo()
+    final["final"] = True
+    assert "BORRADOR" not in text_of(render_with_template(buf.getvalue(), final, []))

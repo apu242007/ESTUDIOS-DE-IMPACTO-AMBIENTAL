@@ -356,8 +356,7 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
 
 
 def render_with_template(template: bytes, ctx: dict[str, Any], photos: list[dict[str, Any]]) -> bytes:
-    """Plantilla .docx del cliente con variables docxtpl. Variables: proyecto, cliente, solicitante, consultora, obras,
-    interferencias, fotos (con imagen), capas, gps, fecha."""
+    """Plantilla .docx del cliente con variables docxtpl. Marcadores: ver docs/plantillas.md."""
     from docxtpl import DocxTemplate, InlineImage
 
     tpl = DocxTemplate(io.BytesIO(template))
@@ -370,6 +369,11 @@ def render_with_template(template: bytes, ctx: dict[str, Any], photos: list[dict
         "capas": ctx["layers"], "gps": ctx["gps"], "fecha": _fecha(dt.date.today()),
         "titulo": TITULO.get(p["doc_type"], "INFORME AMBIENTAL"),
     }
+    from app.core import report_sections as rs
+    from app.core.text_template import project_vars
+
+    ctx.setdefault("vars", project_vars(p, (ctx.get("client") or {}).get("name")))
+    data.update(rs.template_data(ctx))
     tpl.render(data)
     buf = io.BytesIO()
     tpl.save(buf)

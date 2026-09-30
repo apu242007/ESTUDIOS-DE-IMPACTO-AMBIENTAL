@@ -271,3 +271,61 @@ def add_anexo_matriz(doc: Any, ctx: dict[str, Any], warn: list[str]) -> None:
         p = doc.add_paragraph(f"{a['code']}  {a['name']}  ({STAGE_LABEL.get(a.get('stage') or '', 'sin etapa')})")
         p.runs[0].font.size = Pt(8)
     _orientation(doc, False)
+
+
+# ----------------------------------------------------------------------------------------------- plantillas de cliente (docxtpl)
+
+def template_data(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Marcadores extra para plantillas .docx de cliente: todo el contenido del informe como textos y listas.
+    Ver docs/plantillas.md. Los textos ya vienen con las variables reemplazadas y con los ajustes del proyecto."""
+    from app.core.geo import format_dms, to_gauss_kruger
+
+    vars_ = ctx["vars"]
+    med = lambda m: MEDIO_LABEL.get(m, m)  # noqa: E731
+
+    def cap(name: str) -> list[dict[str, str]]:
+        return [{"titulo": sub or "", "texto": fill_vars(t, vars_)} for sub, t in chapter_blocks(ctx, name)]
+
+    stats = _factor_stats(ctx)
+    factors = ctx.get("factors") or []
+    actions = sorted(ctx.get("actions") or [], key=lambda a: (STAGE_ORDER.index(a["stage"]) if a.get("stage") in STAGE_ORDER else 99, a.get("sort_order") or 0))
+    cells = {(i["factor_id"], i["action_id"]): i for i in ctx.get("impacts") or []}
+    blocks = {b["key"]: b for b in ctx.get("declarations") or []}
+    over = ctx.get("decl_overrides") or {}
+
+    declaraciones = []
+    for medio in MEDIO_ORDER:
+        for f in [x for x in factors if x["medio"] == medio]:
+            b = blocks.get(f"decl_{f['code']}")
+            text = over.get(f["id"]) or (b["template"] if b else "")
+            if text:
+                declaraciones.append({"titulo": (b or {}).get("title") or f["name"], "medio": med(medio), "texto": fill_vars(text, vars_)})
+
+    pozos = []
+    for w in ctx.get("wells") or []:
+        dlat, dlon = format_dms(w["lat"], w["lon"])
+        x, y = to_gauss_kruger(w["lat"], w["lon"])
+        pozos.append({"nombre": w["name"], "lat": dlat, "lon": dlon, "x": round(x), "y": round(y)})
+
+    return {
+        "borrador": not ctx.get("final"),
+        "variables": vars_,
+        "secciones": {"resumen": cap("RESUMEN EJECUTIVO"), "ubicacion": cap("UBICACION Y DESCRIPCION GENERAL DEL PROYECTO"),
+                      "impactos": cap("IDENTIFICACION DE IMPACTOS"), "referencias": cap("REFERENCIAS")},
+        "ambiente": [{"seccion": i["section"], "titulo": i["label"], "texto": fill_vars(i["body"], vars_)} for i in ctx.get("environment") or []],
+        "factores": [{"codigo": f["code"], "nombre": f["name"], "medio": med(f["medio"]), "uip": f.get("uip"),
+                      "componente": f.get("component") or "", "negativos": (stats.get(f["id"]) or {}).get("neg", 0),
+                      "positivos": (stats.get(f["id"]) or {}).get("pos", 0), "peor": (stats.get(f["id"]) or {}).get("peor"),
+                      "categoria_peor": (stats.get(f["id"]) or {}).get("cat") or ""} for f in factors],
+        "matriz": {"acciones": [{"codigo": a["code"], "nombre": a["name"], "etapa": STAGE_LABEL.get(a.get("stage") or "", "")} for a in actions],
+                   "filas": [{"factor": f["name"], "medio": med(f["medio"]),
+                              "valores": [signed(cells[(f["id"], a["id"])]["importance"]) if (f["id"], a["id"]) in cells and cells[(f["id"], a["id"])].get("importance") is not None else "" for a in actions]}
+                             for f in factors]},
+        "declaraciones": declaraciones,
+        "pga": {"generales": [fill_vars(t, vars_) for t in ctx.get("pga_general") or []],
+                "particulares": [{"etapa": STAGE_LABEL.get(m.get("stage") or "", ""), "accion": m.get("action") or "",
+                                  "medida": fill_vars(m["measure"], vars_), "recurso": m.get("resource") or "", "cronograma": m.get("timing") or "",
+                                  "responsable": m.get("responsible") or "", "seguimiento": m.get("follow_up") or ""}
+                                 for m in ctx.get("pga") or []]},
+        "pozos": pozos,
+    }
