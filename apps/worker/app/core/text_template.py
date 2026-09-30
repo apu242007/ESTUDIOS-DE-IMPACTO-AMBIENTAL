@@ -41,3 +41,18 @@ def unresolved(text: str, vars: dict[str, Any]) -> list[str]:
 def paragraphs(text: str) -> list[str]:
     """Separa un texto largo en párrafos (líneas en blanco). Sin párrafos vacíos."""
     return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+_XML_INVALIDO = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def xml_safe(obj: Any) -> Any:
+    """Quita de todos los textos (recursivo) los caracteres que XML no admite. Un texto pegado desde Word con un
+    carácter de control haría fallar el armado completo del .docx (python-docx lanza ValueError)."""
+    if isinstance(obj, str):
+        return _XML_INVALIDO.sub("", obj)
+    if isinstance(obj, list):
+        return [xml_safe(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: xml_safe(v) for k, v in obj.items()}
+    return obj

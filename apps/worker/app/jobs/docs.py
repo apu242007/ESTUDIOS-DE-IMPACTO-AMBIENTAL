@@ -445,7 +445,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
     cats = sel("catalog_photo_categories", "key, label, sort_order", org_id=org)
 
     # --- contenido de las secciones (catálogos + lo que el profesional eligió o ajustó en este proyecto)
-    from app.core.text_template import project_vars
+    from app.core.text_template import project_vars, xml_safe
 
     blocks = sel("catalog_text_blocks", "key, scope, title, template, sort_order", org_id=org)
     penv = {r["item_id"]: r for r in sel("project_environment", "item_id, included, body_override", project_id=pid)}
@@ -469,7 +469,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
         g = w.get("geojson") or {}
         if g.get("type") == "Point" and g.get("coordinates"):
             wells.append({"name": w["name"], "lon": g["coordinates"][0], "lat": g["coordinates"][1]})
-    return {
+    return xml_safe({
         "vars": project_vars(proj, client_row.get("name")),
         "sections": [b for b in blocks if b["scope"] == "seccion"],
         "declarations": [b for b in blocks if b["scope"] == "declaracion"],
@@ -496,7 +496,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
                    for l in sel("layer_imports", "base_name, format, n_features, status, files", project_id=pid) if l["status"] in ("listo", "incompleto")],
         "gps": [{"name": Path(g["file_path"]).name, "kind": str(g["file_kind"]).upper(), "n": g.get("n_points"), "files": [g["file_path"]]}
                 for g in sel("gps_imports", "file_path, file_kind, n_points, status", project_id=pid) if g["status"] == "listo"],
-    }
+    })
 
 
 def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: list[str]) -> list[dict[str, Any]]:

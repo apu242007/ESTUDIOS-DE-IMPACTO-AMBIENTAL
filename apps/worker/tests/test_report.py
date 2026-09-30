@@ -292,3 +292,16 @@ def test_sin_figuras_no_agrega_nada_ni_rompe() -> None:
     d = Document(io.BytesIO(build_docx(completo(), [], HOY)))
     assert len(d.inline_shapes) == 0
     assert "Figura 1" not in text_of(build_docx(completo(), [], HOY))
+
+
+def test_texto_con_caracteres_de_control_no_rompe_el_informe() -> None:
+    """Pegado desde Word puede traer \x0b/\x00: python-docx lanzaría ValueError y se perdería todo el informe."""
+    from app.core.text_template import xml_safe
+
+    c = xml_safe(completo())
+    c["sections"][0]["template"] = xml_safe("Texto con\x0b salto\x00 vertical de {pad}.")
+    assert "\x0b" not in c["sections"][0]["template"]
+    t = text_of(build_docx(c, [], HOY))
+    assert "Texto con salto vertical de PAD 58." in t
+    assert xml_safe({"a": ["x\x01y", {"b": "z\x1f"}]}) == {"a": ["xy", {"b": "z"}]}
+    assert xml_safe("tab\tsalto\nok") == "tab\tsalto\nok"       # tab y salto de línea sí son válidos
