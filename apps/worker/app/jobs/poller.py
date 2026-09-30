@@ -4,9 +4,11 @@ from __future__ import annotations
 import logging
 import tempfile
 import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
+from app.jobs.gps import check_signature, gdb_to_gpx, match_waypoints, parse_gpx
 from app.jobs.layers import LayerResult, process_layer
 
 log = logging.getLogger("eia.worker")
@@ -61,13 +63,76 @@ def run_layer_job(client: Any, job: dict[str, Any]) -> None:
     client.table("layer_imports").update(upd).eq("id", job["id"]).execute()
 
 
+def _fetch_all(query_factory: Any, page: int = 1000) -> list[dict[str, Any]]:
+    """PostgREST corta en ~1000 filas: pagina hasta agotar. `query_factory()` devuelve una consulta nueva."""
+    rows: list[dict[str, Any]] = []
+    while True:
+        chunk = query_factory().range(len(rows), len(rows) + page - 1).execute().data or []
+        rows += chunk
+        if len(chunk) < page:
+            return rows
+
+
+def _point_wkt(lat: float, lon: float) -> str:
+    return f"SRID=4326;POINT({lon} {lat})"
+
+
+def run_gps_job(client: Any, job: dict[str, Any]) -> None:
+    """Procesa un gps_import ya reclamado: valida, convierte, guarda puntos y cruza con los waypoints. Nunca lanza."""
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / Path(job["file_path"]).name
+            src.write_bytes(client.storage.from_(BUCKET).download(job["file_path"]))
+            if (bad := check_signature(src, job["file_kind"])):
+                raise ValueError(bad)
+            gpx = src
+            if job["file_kind"] == "gdb":
+                gpx = Path(tmp) / "convertido.gpx"
+                gdb_to_gpx(src, gpx)
+            points = parse_gpx(gpx.read_bytes())
+
+        wps = _fetch_all(lambda: client.table("waypoints").select("id, number").eq("project_id", job["project_id"]))
+        m = match_waypoints(points, wps)
+
+        ids = [str(uuid.uuid4()) for _ in points]
+        rows = [{
+            "id": ids[i], "org_id": job["org_id"], "project_id": job["project_id"], "import_id": job["id"],
+            "name": p.name, "number": p.number, "geom": _point_wkt(p.lat, p.lon),
+            "elevation_m": p.elevation_m, "recorded_at": p.recorded_at,
+        } for i, p in enumerate(points)]
+        client.table("gps_points").delete().eq("import_id", job["id"]).execute()
+        for i in range(0, len(rows), BATCH):
+            client.table("gps_points").insert(rows[i:i + BATCH]).execute()
+
+        for wid, idx in m.pairs:
+            p = points[idx]
+            client.table("waypoints").update({
+                "geom": _point_wkt(p.lat, p.lon), "elevation_m": p.elevation_m, "source": "gps",
+                "gps_point_id": ids[idx], "matched": True,
+            }).eq("id", wid).execute()
+
+        upd: dict[str, Any] = {
+            "status": "listo", "n_points": len(points), "n_matched": len(m.pairs),
+            "n_unmatched": len(m.unmatched_points), "error": None,
+            "report": {"unmatched_points": m.unmatched_points, "unmatched_waypoints": m.unmatched_waypoints,
+                       "ambiguous": m.ambiguous, "duplicates": m.duplicates},
+        }
+    except (ValueError, RuntimeError) as e:  # mensajes pensados para el usuario
+        upd = {"status": "error", "error": str(e)}
+    except Exception as e:
+        log.exception("fallo procesando gps_import %s", job.get("id"))
+        upd = {"status": "error", "error": f"Error inesperado al procesar el GPS: {e}"}
+    client.table("gps_imports").update(upd).eq("id", job["id"]).execute()
+
+
 def poll_once(client: Any) -> bool:
-    """Reclama y procesa un trabajo. True si habia uno."""
-    job = client.rpc("claim_job", {"p_table": "layer_imports"}).execute().data
-    if not job:
-        return False
-    run_layer_job(client, job)
-    return True
+    """Reclama y procesa un trabajo (capas primero, luego GPS). True si habia uno."""
+    for table, run in (("layer_imports", run_layer_job), ("gps_imports", run_gps_job)):
+        job = client.rpc("claim_job", {"p_table": table}).execute().data
+        if job:
+            run(client, job)
+            return True
+    return False
 
 
 def poll_forever(client: Any, poll_seconds: float, stop: threading.Event) -> None:
