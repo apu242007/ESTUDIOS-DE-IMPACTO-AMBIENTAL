@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/app-providers";
@@ -12,7 +12,11 @@ const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"
 export const metadata: Metadata = {
   title: "EIA — Informes de impacto ambiental",
   description: "Sistema interno para generar informes ambientales",
+  icons: { apple: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/apple-touch-icon.png` },
+  appleWebApp: { capable: true, title: "EIA" },
 };
+
+export const viewport: Viewport = { themeColor: "#0f4c5c" };
 
 export default function RootLayout({
   children,
