@@ -51,6 +51,7 @@ export function ProjectForm({
       client_id: project?.client_id ?? "",
       name: project?.name ?? "",
       code: project?.code ?? "",
+      short_name: project?.short_name ?? "",
       doc_type: project?.doc_type ?? "IA",
       field_area: project?.field_area ?? "",
       province: project?.province ?? "Neuquén",
@@ -103,6 +104,9 @@ export function ProjectForm({
         </Field>
         <Field label="Código" error={errors.code?.message}>
           <Input className="h-11" placeholder="2947-26" {...register("code")} />
+        </Field>
+        <Field label="Nombre corto (ej. PAD 58)" error={errors.short_name?.message}>
+          <Input className="h-11" placeholder="PAD 58" {...register("short_name")} />
         </Field>
         <Field label="Yacimiento / área" error={errors.field_area?.message}>
           <Input className="h-11" list="areas" {...register("field_area")} />

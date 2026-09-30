@@ -2,7 +2,7 @@
 
 export type SectionId =
   | "resumen" | "datos" | "alcance" | "capas" | "catastro"
-  | "relevamiento" | "gps" | "comparacion" | "mapa" | "interferencias" | "fotos" | "informe" | "impactos";
+  | "relevamiento" | "gps" | "comparacion" | "mapa" | "interferencias" | "fotos" | "informe" | "impactos" | "textos" | "ambiente" | "declaracion" | "pga";
 
 export type Counts = {
   applicantOk: boolean;
@@ -16,6 +16,9 @@ export type Counts = {
   waypointsMatched: number;
   gpsStatuses: string[];           // estado de cada importación GPS
   photos: number;
+  impacts: number;                 // celdas cargadas en la matriz de impactos
+  zoneKey: string | null;          // zona del ambiente elegida
+  measuresSelected: number;        // medidas particulares elegidas en el PGA
 };
 
 export type CheckItem = {
@@ -74,6 +77,18 @@ export function buildChecklist(c: Counts): CheckItem[] {
         : !gpsListo ? "Subí el .gdb del GPS de mano."
         : sinGps === 0 ? "Todos los waypoints tienen posición del GPS."
         : `${plural(sinGps, "waypoint sin posición GPS", "waypoints sin posición GPS")}.`,
+    },
+    {
+      id: "impactos", section: "impactos", label: "Matriz de impactos", done: c.impacts > 0,
+      detail: c.impacts > 0 ? `${plural(c.impacts, "impacto cargado", "impactos cargados")}.` : "Cargá la matriz: cada celda se elige con desplegables.",
+    },
+    {
+      id: "ambiente", section: "ambiente", label: "Descripción del ambiente", done: !!c.zoneKey,
+      detail: c.zoneKey ? "Zona elegida." : "Elegí la zona del proyecto para cargar la descripción del ambiente.",
+    },
+    {
+      id: "pga", section: "pga", label: "Plan de gestión ambiental", done: c.measuresSelected > 0,
+      detail: c.measuresSelected > 0 ? `${plural(c.measuresSelected, "medida elegida", "medidas elegidas")}.` : "Elegí las medidas particulares (podés sugerirlas desde la matriz).",
     },
     {
       id: "fotos", section: "fotos", label: "Fotos del relevamiento", done: c.photos > 0,

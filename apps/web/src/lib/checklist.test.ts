@@ -4,16 +4,18 @@ import { buildChecklist, nextStep, progress, sectionStatus, type Counts } from "
 const vacio: Counts = {
   applicantOk: false, missingDatos: ["Razón social del solicitante"], works: 0, worksWithGeom: 0, layerStatuses: [],
   lines: 0, linesClosed: 0, waypoints: 0, waypointsMatched: 0, gpsStatuses: [], photos: 0,
+  impacts: 0, zoneKey: null, measuresSelected: 0,
 };
 const completo: Counts = {
   applicantOk: true, missingDatos: [], works: 12, worksWithGeom: 12, layerStatuses: ["listo", "listo"],
   lines: 3, linesClosed: 3, waypoints: 40, waypointsMatched: 40, gpsStatuses: ["listo"], photos: 120,
+  impacts: 132, zoneKey: "bajada_del_palo_oeste", measuresSelected: 40,
 };
 
 describe("lista de chequeo", () => {
   it("proyecto nuevo: nada listo y el primer paso son los datos", () => {
     const items = buildChecklist(vacio);
-    expect(progress(items)).toEqual({ done: 0, total: 7 });
+    expect(progress(items)).toEqual({ done: 0, total: 10 });
     expect(nextStep(items)?.id).toBe("datos");
     expect(items[0].detail).toContain("Razón social del solicitante");
   });
@@ -60,5 +62,18 @@ describe("lista de chequeo", () => {
 
   it("singular y plural", () => {
     expect(buildChecklist({ ...completo, works: 1, worksWithGeom: 1 }).find((i) => i.id === "alcance")!.detail).toBe("1 obra cargada.");
+  });
+});
+
+describe("contenido del informe", () => {
+  it("matriz, ambiente y PGA se marcan según lo cargado", () => {
+    const items = buildChecklist({ ...completo, impacts: 0, zoneKey: null, measuresSelected: 0 });
+    const por = (id: string) => items.find((i) => i.id === id)!;
+    expect(por("impactos").done).toBe(false);
+    expect(por("ambiente").detail).toContain("zona");
+    expect(por("pga").detail).toContain("sugerirlas");
+    const listo = buildChecklist(completo);
+    expect(listo.find((i) => i.id === "impactos")!.detail).toBe("132 impactos cargados.");
+    expect(listo.find((i) => i.id === "pga")!.done).toBe(true);
   });
 });

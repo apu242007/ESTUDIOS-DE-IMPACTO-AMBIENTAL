@@ -25,7 +25,7 @@ export async function getChecklist(project: ProjectRow): Promise<CheckItem[]> {
   const id = project.id;
   const head = { count: "exact" as const, head: true };
 
-  const [works, worksGeom, layers, lines, wps, wpsGps, gps, photos] = await Promise.all([
+  const [works, worksGeom, layers, lines, wps, wpsGps, gps, photos, impacts, measures] = await Promise.all([
     sb.from("works").select("id", head).eq("project_id", id),
     sb.from("works").select("id", head).eq("project_id", id).not("geom", "is", null),
     sb.from("layer_imports").select("status").eq("project_id", id),
@@ -34,6 +34,8 @@ export async function getChecklist(project: ProjectRow): Promise<CheckItem[]> {
     sb.from("waypoints").select("id", head).eq("project_id", id).eq("matched", true),
     sb.from("gps_imports").select("status").eq("project_id", id),
     sb.from("photos").select("id", head).eq("project_id", id),
+    sb.from("project_impacts").select("id", head).eq("project_id", id),
+    sb.from("project_measures").select("id", head).eq("project_id", id),
   ]);
   for (const r of [layers, lines, gps]) if (r.error) throw new Error(r.error.message);
 
@@ -50,6 +52,9 @@ export async function getChecklist(project: ProjectRow): Promise<CheckItem[]> {
     waypointsMatched: n(wpsGps),
     gpsStatuses: (gps.data ?? []).map((r) => String(r.status)),
     photos: n(photos),
+    impacts: n(impacts),
+    zoneKey: project.zone_key ?? null,
+    measuresSelected: n(measures),
   };
   return buildChecklist(counts);
 }

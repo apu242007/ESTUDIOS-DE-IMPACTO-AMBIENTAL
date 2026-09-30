@@ -30,6 +30,7 @@ function toRow(v: ProjectFormValues) {
     client_id: v.client_id,
     name: v.name.trim(),
     code: emptyToNull(v.code),
+    short_name: emptyToNull(v.short_name),
     doc_type: v.doc_type,
     field_area: emptyToNull(v.field_area),
     province: v.province,

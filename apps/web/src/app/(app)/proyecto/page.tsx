@@ -19,7 +19,11 @@ import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
 import { Fotos } from "@/components/project/fotos";
 import { Gps } from "@/components/project/gps";
+import { Ambiente } from "@/components/project/ambiente";
+import { Declaracion } from "@/components/project/declaracion";
 import { Impactos } from "@/components/project/impactos";
+import { Pga } from "@/components/project/pga";
+import { Textos } from "@/components/project/textos";
 import { Informe } from "@/components/project/informe";
 import { Interferencias } from "@/components/project/interferencias";
 import { Comparacion } from "@/components/project/comparacion";
@@ -236,6 +240,10 @@ function ProjectDetail() {
           {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} />}
           {section === "fotos" && <Fotos orgId={orgId} projectId={project.id} />}
           {section === "impactos" && <Impactos orgId={orgId} projectId={project.id} />}
+          {section === "textos" && <Textos orgId={orgId} project={project} />}
+          {section === "ambiente" && <Ambiente orgId={orgId} project={project} />}
+          {section === "declaracion" && <Declaracion orgId={orgId} project={project} />}
+          {section === "pga" && <Pga orgId={orgId} project={project} />}
           {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
         </div>

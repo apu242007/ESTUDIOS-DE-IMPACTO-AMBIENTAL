@@ -28,8 +28,17 @@ export const GROUPS: Group[] = [
       { id: "comparacion", label: "Comparación" },
       { id: "mapa", label: "Mapa" },
       { id: "interferencias", label: "Interferencias" },
-      { id: "impactos", label: "Impactos" },
       { id: "fotos", label: "Fotos" },
+    ],
+  },
+  {
+    title: "Contenido",
+    items: [
+      { id: "textos", label: "Textos" },
+      { id: "ambiente", label: "Ambiente" },
+      { id: "impactos", label: "Impactos" },
+      { id: "declaracion", label: "Declaración" },
+      { id: "pga", label: "PGA" },
     ],
   },
   { title: "Entrega", items: [{ id: "informe", label: "Informe" }] },
