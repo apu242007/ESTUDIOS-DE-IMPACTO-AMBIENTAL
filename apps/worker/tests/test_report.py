@@ -267,3 +267,28 @@ def test_plantilla_de_cliente_se_completa_con_los_marcadores_nuevos() -> None:
     final = completo()
     final["final"] = True
     assert "BORRADOR" not in text_of(render_with_template(buf.getvalue(), final, []))
+
+
+# --- figuras
+def _png() -> bytes:
+    from PIL import Image
+
+    b = io.BytesIO()
+    Image.new("RGB", (40, 30), (200, 120, 40)).save(b, "PNG")
+    return b.getvalue()
+
+
+def test_las_figuras_generadas_se_incrustan_con_epigrafe_numerado() -> None:
+    c = completo()
+    c["figure_images"] = {"ubicacion": _png(), "implantacion": _png(), "interferencias": _png()}
+    d = Document(io.BytesIO(build_docx(c, [], HOY)))
+    t = text_of(build_docx(c, [], HOY))
+    assert len(d.inline_shapes) == 3
+    for esperado in ("Figura 1. Ubicación general del proyecto.", "Figura 2. Implantación de las obras.", "Figura 3. Interferencias relevadas."):
+        assert esperado in t, esperado
+
+
+def test_sin_figuras_no_agrega_nada_ni_rompe() -> None:
+    d = Document(io.BytesIO(build_docx(completo(), [], HOY)))
+    assert len(d.inline_shapes) == 0
+    assert "Figura 1" not in text_of(build_docx(completo(), [], HOY))

@@ -105,6 +105,28 @@ def add_resumen(doc: Any, ctx: dict[str, Any], n: int, warn: list[str]) -> None:
         _pending(doc, "no hay texto de resumen ejecutivo en el catálogo.")
 
 
+FIGURE_TITLE = {"ubicacion": "Ubicación general del proyecto", "implantacion": "Implantación de las obras",
+                "interferencias": "Interferencias relevadas"}
+
+
+def add_figure(doc: Any, ctx: dict[str, Any], kind: str) -> None:
+    """Inserta la figura generada (si existe) con epígrafe numerado. Sin figura no agrega nada: el faltante lo marca Control."""
+    img = (ctx.get("figure_images") or {}).get(kind)
+    if not img:
+        return
+    import io
+
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    ctx["_fig_n"] = ctx.get("_fig_n", 0) + 1
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.add_run().add_picture(io.BytesIO(img), width=Cm(15.5))
+    cap = doc.add_paragraph(f"Figura {ctx['_fig_n']}. {FIGURE_TITLE.get(kind, kind)}.")
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cap.runs[0].font.size = Pt(8.5)
+
+
 def add_ubicacion(doc: Any, ctx: dict[str, Any], n: int, warn: list[str]) -> None:
     doc.add_heading(f"{n}. Ubicación y descripción general del proyecto", level=1)
     if not _chapter(doc, ctx, "UBICACION Y DESCRIPCION GENERAL DEL PROYECTO", warn):
@@ -120,6 +142,8 @@ def add_ubicacion(doc: Any, ctx: dict[str, Any], n: int, warn: list[str]) -> Non
             x, y = to_gauss_kruger(w["lat"], w["lon"])
             rows.append([w["name"], dlat, dlon, str(round(x)), str(round(y))])
         _table(doc, ["Pozo", "Latitud", "Longitud", "X", "Y"], rows, [5, 3.2, 3.2, 2.3, 2.3])
+    add_figure(doc, ctx, "ubicacion")
+    add_figure(doc, ctx, "implantacion")
 
 
 def add_ambiente(doc: Any, ctx: dict[str, Any], n: int, warn: list[str]) -> None:

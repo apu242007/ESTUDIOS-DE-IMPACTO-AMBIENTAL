@@ -215,6 +215,9 @@ def _add_interferencias(doc: Any, ctx: dict[str, Any]) -> None:
         doc.add_paragraph("Coordenadas planas POSGAR 94 / Argentina faja 2 (EPSG:22182): X = norte, Y = este.").runs[0].font.size = Pt(8.5)
     else:
         _pending(doc, "no hay waypoints con posición.")
+    from app.core.report_sections import add_figure
+
+    add_figure(doc, ctx, "interferencias")
     if ctx["interferencias_sin_posicion"]:
         _pending(doc, f"{ctx['interferencias_sin_posicion']} waypoint(s) sin posición no figuran en la tabla.")
 
@@ -265,6 +268,7 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
     p = ctx["project"]
     ctx.setdefault("vars", project_vars(p, (ctx.get("client") or {}).get("name")))
     warn: list[str] = ctx.setdefault("_warn", [])
+    ctx["_fig_n"] = 0   # numeración de figuras propia de cada armado (no se arrastra entre llamadas)
     doc = Document()
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Cm(21), Cm(29.7)
@@ -478,6 +482,9 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
         "pga_general": [m["body"] for m in sorted(measures, key=lambda x: x["sort_order"] or 0) if m["general"]],
         "pga": pga,
         "wells": wells,
+        "figures": {r["kind"]: r["file_path"] for r in sorted(
+            sel("figure_builds", "kind, file_path, created_at, status", project_id=pid, status="listo"), key=lambda x: x["created_at"])
+            if r.get("file_path")},
         "final": bool((job.get("params") or {}).get("final")),
         "project": proj, "client": client_row,
         "works": sel("works_compare", "name, kind, declared_length_m, declared_area_m2, geom_length_m, geom_area_m2, sort_order", project_id=pid),
@@ -552,6 +559,12 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
         params = clean_params(job.get("params"))
         ctx = load_context(client, job)
         photos = _load_photos(client, ctx, params, log)
+        ctx["figure_images"] = {}
+        for kind, path in (ctx.get("figures") or {}).items():
+            try:
+                ctx["figure_images"][kind] = client.storage.from_(BUCKET).download(path)
+            except Exception as e:  # una figura que falta no impide el informe
+                log.append(f"Figura omitida ({kind}): {e}")
         log.append(f"{len(photos)} foto(s) a {params['photo_max_px']} px, calidad {params['jpeg_quality']}.")
 
         if job.get("template_id"):
