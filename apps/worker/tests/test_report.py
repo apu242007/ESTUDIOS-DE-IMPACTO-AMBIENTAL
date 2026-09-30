@@ -184,7 +184,17 @@ def test_paquete_final_reune_informe_kmz_y_anexos_y_avisa_lo_que_falta() -> None
     c["layers"] = [{"name": "Caminos", "kind": "SHP", "n": 5, "files": ["o/p/layers/i1/Caminos.shp", "o/p/layers/i1/Caminos.dbf"]}]
     c["gps"] = [{"name": "PAD58.gdb", "kind": "GDB", "n": 30, "files": ["o/p/gps/g1/PAD58.gdb"]}]
     log: list[str] = []
+    c["_org"] = "o"
     store = Store({"o/p/layers/i1/Caminos.shp": b"shp", "o/p/gps/g1/PAD58.gdb": b"gdb"})   # falta el .dbf
+
+    from app.jobs.docs import _own_path
+    assert _own_path(c, "o/p/x.jpg") == "o/p/x.jpg"
+    for malo in ("otra/p/x.jpg", "o/../otra/x.jpg"):   # ruta de otra organización o con ..
+        try:
+            _own_path(c, malo)
+        except ValueError:
+            continue
+        raise AssertionError(malo)
     z = zipfile.ZipFile(io.BytesIO(make_package(store, c, b"DOCX", b"%PDF", log)))
     assert sorted(z.namelist()) == ["Anexos georreferenciados/Caminos.shp", "Anexos georreferenciados/PAD58.gdb",
                                     "Informe.docx", "Informe.pdf", "Interferencias.kmz"]

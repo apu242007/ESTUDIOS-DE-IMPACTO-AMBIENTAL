@@ -378,7 +378,10 @@ def render_with_template(template: bytes, ctx: dict[str, Any], photos: list[dict
 
     ctx.setdefault("vars", project_vars(p, (ctx.get("client") or {}).get("name")))
     data.update(rs.template_data(ctx))
-    tpl.render(data)
+    # plantilla subida por un usuario: Jinja en sandbox (sin acceso a __globals__/os) y con escape de &, <, >
+    from jinja2.sandbox import SandboxedEnvironment
+
+    tpl.render(data, jinja_env=SandboxedEnvironment(), autoescape=True)
     buf = io.BytesIO()
     tpl.save(buf)
     return buf.getvalue()
@@ -485,7 +488,8 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
         "figures": {r["kind"]: r["file_path"] for r in sorted(
             sel("figure_builds", "kind, file_path, created_at, status", project_id=pid, status="listo"), key=lambda x: x["created_at"])
             if r.get("file_path")},
-        "final": bool((job.get("params") or {}).get("final")),
+        "final": (job.get("params") or {}).get("final") is True,  # estricto: "false" (texto) no es True
+        "_org": job["org_id"],
         "project": proj, "client": client_row,
         "works": sel("works_compare", "name, kind, declared_length_m, declared_area_m2, geom_length_m, geom_area_m2, sort_order", project_id=pid),
         "interferencias": inter, "interferencias_sin_posicion": sin,
@@ -499,6 +503,13 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
     })
 
 
+def _own_path(ctx: dict[str, Any], path: str) -> str:
+    """El worker usa service role (salta RLS de Storage): solo descarga objetos de la organización del trabajo."""
+    if not path.startswith(f"{ctx['_org']}/") or ".." in path.split("/"):
+        raise ValueError(f"ruta fuera de la organización: {path}")
+    return path
+
+
 def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: list[str]) -> list[dict[str, Any]]:
     order = {c["key"]: i for i, c in enumerate(ctx["photo_categories"])}
     label = {c["key"]: c["label"] for c in ctx["photo_categories"]}
@@ -507,7 +518,7 @@ def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: 
         if not ph.get("path_original"):
             continue
         try:
-            raw = client.storage.from_(BUCKET).download(ph["path_original"])
+            raw = client.storage.from_(BUCKET).download(_own_path(ctx, ph["path_original"]))
             out.append({"category": ph["category"], "label": label.get(ph["category"], ph["category"]),
                         "caption": ph.get("caption"), "jpeg": prepare_photo(raw, params["photo_max_px"], params["jpeg_quality"])})
         except Exception as e:  # una foto rota no debe tirar todo el informe: se informa en el log
@@ -545,7 +556,7 @@ def make_package(client: Any, ctx: dict[str, Any], docx: bytes, pdf: bytes | Non
         for f in ctx["layers"] + ctx["gps"]:
             for path in f.get("files") or []:
                 try:
-                    z.writestr(f"Anexos georreferenciados/{Path(path).name}", client.storage.from_(BUCKET).download(path))
+                    z.writestr(f"Anexos georreferenciados/{Path(path).name}", client.storage.from_(BUCKET).download(_own_path(ctx, path)))
                 except Exception as e:  # un archivo que falta no impide entregar el resto: se avisa
                     log.append(f"Paquete: no se pudo incluir {Path(path).name} ({e})")
     return buf.getvalue()
@@ -562,7 +573,7 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
         ctx["figure_images"] = {}
         for kind, path in (ctx.get("figures") or {}).items():
             try:
-                ctx["figure_images"][kind] = client.storage.from_(BUCKET).download(path)
+                ctx["figure_images"][kind] = client.storage.from_(BUCKET).download(_own_path(ctx, path))
             except Exception as e:  # una figura que falta no impide el informe
                 log.append(f"Figura omitida ({kind}): {e}")
         log.append(f"{len(photos)} foto(s) a {params['photo_max_px']} px, calidad {params['jpeg_quality']}.")
@@ -571,7 +582,7 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             trow = client.table("document_templates").select("file_path").eq("id", job["template_id"]).limit(1).execute().data
             if not trow:
                 raise ValueError("La plantilla elegida ya no existe.")
-            docx_bytes = render_with_template(client.storage.from_(BUCKET).download(trow[0]["file_path"]), ctx, photos)
+            docx_bytes = render_with_template(client.storage.from_(BUCKET).download(_own_path(ctx, trow[0]["file_path"])), ctx, photos)
         else:
             docx_bytes = build_docx(ctx, photos)
 
