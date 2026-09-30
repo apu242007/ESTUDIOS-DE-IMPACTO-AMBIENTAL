@@ -244,7 +244,7 @@ function ProjectDetail() {
           {section === "ambiente" && <Ambiente orgId={orgId} project={project} />}
           {section === "declaracion" && <Declaracion orgId={orgId} project={project} />}
           {section === "pga" && <Pga orgId={orgId} project={project} />}
-          {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} />}
+          {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} status={project.status} isAdmin={isAdmin} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
         </div>
       </div>
