@@ -18,6 +18,7 @@ import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
 import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
+import { Gps } from "@/components/project/gps";
 import { Comparacion } from "@/components/project/comparacion";
 import { Mapa } from "@/components/project/mapa";
 import { Relevamiento } from "@/components/project/relevamiento";
@@ -142,6 +143,7 @@ function ProjectDetail() {
           <TabsTrigger value="alcance">Alcance</TabsTrigger>
           <TabsTrigger value="capas">Capas</TabsTrigger>
           <TabsTrigger value="relevamiento">Relevamiento</TabsTrigger>
+          <TabsTrigger value="gps">GPS</TabsTrigger>
           <TabsTrigger value="comparacion">Comparación</TabsTrigger>
           <TabsTrigger value="mapa">Mapa</TabsTrigger>
           {isAdmin && <TabsTrigger value="catastro">Catastro</TabsTrigger>}
@@ -169,6 +171,9 @@ function ProjectDetail() {
         </TabsContent>
         <TabsContent value="relevamiento" className="pt-4">
           {tab === "relevamiento" && <Relevamiento orgId={orgId} projectId={project.id} />}
+        </TabsContent>
+        <TabsContent value="gps" className="pt-4">
+          <Gps orgId={orgId} projectId={project.id} />
         </TabsContent>
         <TabsContent value="comparacion" className="pt-4">
           <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />
