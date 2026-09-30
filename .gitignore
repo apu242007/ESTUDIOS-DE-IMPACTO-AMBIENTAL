@@ -37,3 +37,6 @@ supabase/ALL_MIGRATIONS.sql
 apps/web/public/sw.js
 apps/web/public/sw.js.map
 apps/web/public/swe-worker-*.js
+
+# worker de MapLibre copiado en predev/prebuild (scripts/copy-maplibre.mjs)
+apps/web/public/maplibre/

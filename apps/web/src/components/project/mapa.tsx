@@ -41,6 +41,7 @@ export function Mapa({ projectId }: { projectId: string }) {
           properties: { name: f.name ?? "", src: f.src },
         })),
       };
+      maplibre.setWorkerUrl(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/maplibre/maplibre-gl-worker.mjs`);
       const m = new maplibre.Map({
         container: node,
         center: [-68.6, -38.1],

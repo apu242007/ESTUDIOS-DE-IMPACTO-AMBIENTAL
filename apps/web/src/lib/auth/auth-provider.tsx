@@ -70,6 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const load = async (s: Session | null) => {
       const mine = ++gen;
       if (!alive) return;
+      // Con sesión nueva (login) las membresías aún no llegaron: sin esto las pantallas ven "sesión sin
+      // organización" y mandan a crear una, generando organizaciones duplicadas.
+      if (s) setLoading(true);
       setSession(s);
       if (s) {
         try {

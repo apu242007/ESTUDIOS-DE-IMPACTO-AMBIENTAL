@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -132,9 +132,9 @@ export default function ProyectosPage() {
                     <Badge variant="secondary">{STATUS_LABEL[p.status] ?? p.status}</Badge>
                   </TableCell>
                   <TableCell className="space-x-2 text-right whitespace-nowrap">
-                    <Button variant="outline" render={<Link href={`/proyecto?id=${p.id}`} />}>
+                    <Link href={`/proyecto?id=${p.id}`} className={buttonVariants({ variant: "outline" })}>
                       Abrir
-                    </Button>
+                    </Link>
                     <Button variant="outline" disabled={dup.isPending} onClick={() => dup.mutate(p.id)}>
                       Duplicar
                     </Button>

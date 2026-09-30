@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Contours, Mark } from "@/components/brand";
 import { useAuth } from "@/lib/auth/auth-provider";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -17,12 +18,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   }, [loading, session, memberships.length, path, router]);
 
   return (
-    <main className="mx-auto grid min-h-screen w-full max-w-md content-center gap-6 p-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">EIA</h1>
-        <p className="text-muted-foreground">Informes de impacto ambiental</p>
-      </div>
-      {children}
-    </main>
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      <Contours className="pointer-events-none absolute -right-24 -top-16 size-[42rem] text-primary/10" />
+      <main className="relative mx-auto grid min-h-screen w-full max-w-md content-center gap-6 p-6">
+        <div className="flex items-center gap-3 text-primary">
+          <Mark className="size-12" />
+          <div className="text-foreground">
+            <h1 className="font-heading text-3xl font-semibold leading-none">EIA</h1>
+            <p className="mt-1 text-muted-foreground">Informes ambientales de proyectos petroleros</p>
+          </div>
+        </div>
+        {children}
+      </main>
+    </div>
   );
 }

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "predev": "node scripts/copy-maplibre.mjs",
+    "prebuild": "node scripts/copy-maplibre.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

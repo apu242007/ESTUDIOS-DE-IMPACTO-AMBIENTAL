@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
@@ -22,7 +21,12 @@ import { Gps } from "@/components/project/gps";
 import { Comparacion } from "@/components/project/comparacion";
 import { Mapa } from "@/components/project/mapa";
 import { Relevamiento } from "@/components/project/relevamiento";
+import { Resumen } from "@/components/project/resumen";
+import { GROUPS, isSection } from "@/components/project/sections";
+import { getChecklist } from "@/lib/data/summary";
+import { sectionStatus, type SectionId } from "@/lib/checklist";
 import { parseThresholds } from "@/lib/threshold";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
@@ -100,15 +104,35 @@ function Cadastre({ projectId }: { projectId: string }) {
 }
 
 function ProjectDetail() {
-  const id = useSearchParams().get("id");
+  const params = useSearchParams();
+  const router = useRouter();
+  const id = params.get("id");
+  const sParam = params.get("s");
+  const section: SectionId = isSection(sParam) ? sParam : "resumen";
   const { orgId, isAdmin } = useAuth();
   const qc = useQueryClient();
-  const [tab, setTab] = useState("datos");
   const { data: project, isLoading, error } = useQuery({
     queryKey: ["project", id],
     queryFn: () => getProject(id as string),
     enabled: !!id,
   });
+  const { data: items = [], isLoading: loadingList } = useQuery({
+    queryKey: ["checklist", id],
+    queryFn: () => getChecklist(project!),
+    enabled: !!project,
+  });
+
+  // en móvil la fila de secciones se desplaza: la activa queda a la vista al cambiar
+  useEffect(() => {
+    document.querySelector('nav[aria-label="Secciones del proyecto"] [aria-current="page"]')?.scrollIntoView({
+      inline: "center", block: "nearest",
+    });
+  }, [section, project]);
+
+  const go = (s: SectionId) => {
+    void qc.invalidateQueries({ queryKey: ["checklist", id] });
+    router.replace(`/proyecto/?id=${id}&s=${s}`, { scroll: false });
+  };
 
   if (!id) return <p>Falta el identificador del proyecto.</p>;
   if (isLoading) return <p>Cargando…</p>;
@@ -116,77 +140,98 @@ function ProjectDetail() {
     return (
       <p role="alert">
         No se pudo abrir el proyecto. {error ? errMsg(error) : ""}{" "}
-        <Link href="/proyectos" className="underline">
-          Volver
-        </Link>
+        <Link href="/proyectos" className="underline">Volver</Link>
       </p>
     );
   }
 
+  const status = sectionStatus(items);
+
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       <div>
-        <Link href="/proyectos" className="text-sm text-muted-foreground underline">
+        <Link href="/proyectos" className="inline-flex min-h-11 items-center text-base text-muted-foreground underline">
           ← Proyectos
         </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold">{project.name}</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="font-heading text-3xl font-semibold">{project.name}</h1>
           <Badge variant="secondary">{project.doc_type}</Badge>
-          {project.code && <span className="text-muted-foreground">{project.code}</span>}
+          {project.code && <span className="tnum font-mono text-muted-foreground">{project.code}</span>}
         </div>
-        <p className="text-sm text-muted-foreground">{project.clients?.name}</p>
+        <p className="text-base text-muted-foreground">{project.clients?.name}</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
-        <TabsList>
-          <TabsTrigger value="datos">Datos</TabsTrigger>
-          <TabsTrigger value="alcance">Alcance</TabsTrigger>
-          <TabsTrigger value="capas">Capas</TabsTrigger>
-          <TabsTrigger value="relevamiento">Relevamiento</TabsTrigger>
-          <TabsTrigger value="gps">GPS</TabsTrigger>
-          <TabsTrigger value="comparacion">Comparación</TabsTrigger>
-          <TabsTrigger value="mapa">Mapa</TabsTrigger>
-          {isAdmin && <TabsTrigger value="catastro">Catastro</TabsTrigger>}
-        </TabsList>
-        <TabsContent value="datos" className="pt-4">
-          <Card>
-            <CardContent className="pt-4">
-              <ProjectForm
-                key={project.id}
-                orgId={orgId}
-                project={project}
-                onDone={() => {
-                  void qc.invalidateQueries({ queryKey: ["project", id] });
-                  void qc.invalidateQueries({ queryKey: ["projects"] });
-                }}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="alcance" className="pt-4">
-          <Alcance projectId={project.id} />
-        </TabsContent>
-        <TabsContent value="capas" className="pt-4">
-          <Capas orgId={orgId} projectId={project.id} />
-        </TabsContent>
-        <TabsContent value="relevamiento" className="pt-4">
-          {tab === "relevamiento" && <Relevamiento orgId={orgId} projectId={project.id} />}
-        </TabsContent>
-        <TabsContent value="gps" className="pt-4">
-          <Gps orgId={orgId} projectId={project.id} />
-        </TabsContent>
-        <TabsContent value="comparacion" className="pt-4">
-          <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />
-        </TabsContent>
-        <TabsContent value="mapa" className="pt-4">
-          {tab === "mapa" && <Mapa projectId={project.id} />}
-        </TabsContent>
-        {isAdmin && (
-          <TabsContent value="catastro" className="pt-4">
-            <Cadastre projectId={project.id} />
-          </TabsContent>
-        )}
-      </Tabs>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[13.5rem_minmax(0,1fr)]">
+        <nav aria-label="Secciones del proyecto" className="-mx-4 min-w-0 md:sticky md:top-24 md:mx-0 md:self-start">
+          <div className="relative flex gap-2 overflow-x-auto px-4 pb-2 md:flex-col md:gap-4 md:overflow-visible md:px-0 md:pb-0">
+            {GROUPS.map((g) => {
+              const visibles = g.items.filter((i) => !i.adminOnly || isAdmin);
+              if (visibles.length === 0) return null;
+              return (
+                <div key={g.title} className="flex shrink-0 gap-2 md:grid md:gap-1">
+                  {g.title !== "Inicio" && (
+                    <p className="hidden px-3 text-sm font-semibold text-muted-foreground md:block">{g.title}</p>
+                  )}
+                  {visibles.map((it) => {
+                    const active = it.id === section;
+                    const st = status[it.id];
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        onClick={() => go(it.id)}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-base font-medium transition-colors md:w-full",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card hover:bg-accent",
+                        )}
+                      >
+                        {st && (
+                          <span
+                            aria-hidden="true"
+                            className={cn("size-2.5 shrink-0 rounded-full ring-2 ring-white/80", st === "ok" ? "bg-ok" : "bg-warn")}
+                          />
+                        )}
+                        {it.label}
+                        {st && <span className="sr-only">{st === "ok" ? " — listo" : " — pendiente"}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="min-w-0">
+          {section === "resumen" && <Resumen items={items} loading={loadingList} onGo={go} />}
+          {section === "datos" && (
+            <Card>
+              <CardContent className="pt-4">
+                <ProjectForm
+                  key={project.id}
+                  orgId={orgId}
+                  project={project}
+                  onDone={() => {
+                    void qc.invalidateQueries({ queryKey: ["project", id] });
+                    void qc.invalidateQueries({ queryKey: ["projects"] });
+                    void qc.invalidateQueries({ queryKey: ["checklist", id] });
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
+          {section === "alcance" && <Alcance projectId={project.id} />}
+          {section === "capas" && <Capas orgId={orgId} projectId={project.id} />}
+          {section === "relevamiento" && <Relevamiento orgId={orgId} projectId={project.id} />}
+          {section === "gps" && <Gps orgId={orgId} projectId={project.id} />}
+          {section === "comparacion" && <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />}
+          {section === "mapa" && <Mapa projectId={project.id} />}
+          {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
+        </div>
+      </div>
     </div>
   );
 }

@@ -63,7 +63,7 @@ export default function RegisterPage() {
         <CardTitle>Crear cuenta</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-4" noValidate>
+        <form onSubmit={onSubmit} method="post" className="grid gap-4" noValidate>
           <Field label="Email" error={errors.email?.message}>
             <Input type="email" autoComplete="email" className="h-11" {...register("email")} />
           </Field>
