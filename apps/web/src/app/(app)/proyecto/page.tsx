@@ -17,6 +17,7 @@ import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
 import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
+import { Figuras } from "@/components/project/figuras";
 import { Fotos } from "@/components/project/fotos";
 import { Gps } from "@/components/project/gps";
 import { Ambiente } from "@/components/project/ambiente";
@@ -238,6 +239,7 @@ function ProjectDetail() {
           {section === "gps" && <Gps orgId={orgId} projectId={project.id} />}
           {section === "comparacion" && <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />}
           {section === "mapa" && <Mapa projectId={project.id} />}
+          {section === "figuras" && <Figuras projectId={project.id} />}
           {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} />}
           {section === "fotos" && <Fotos orgId={orgId} projectId={project.id} />}
           {section === "impactos" && <Impactos orgId={orgId} projectId={project.id} />}

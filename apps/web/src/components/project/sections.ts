@@ -27,6 +27,7 @@ export const GROUPS: Group[] = [
     items: [
       { id: "comparacion", label: "Comparación" },
       { id: "mapa", label: "Mapa" },
+      { id: "figuras", label: "Figuras" },
       { id: "interferencias", label: "Interferencias" },
       { id: "fotos", label: "Fotos" },
     ],
