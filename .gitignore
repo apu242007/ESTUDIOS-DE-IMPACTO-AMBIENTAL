@@ -44,3 +44,8 @@ apps/web/public/maplibre/
 # resultados de Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+
+# nunca versionar: documentos del cliente y prompts con nombres reales (el repo es público)
+*-20260929T*-001/
+PROMPT_MAESTRO*.md
+.playwright-mcp/
