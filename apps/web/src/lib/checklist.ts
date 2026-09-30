@@ -2,7 +2,7 @@
 
 export type SectionId =
   | "resumen" | "datos" | "alcance" | "capas" | "catastro"
-  | "relevamiento" | "gps" | "comparacion" | "mapa" | "interferencias" | "fotos";
+  | "relevamiento" | "gps" | "comparacion" | "mapa" | "interferencias" | "fotos" | "informe";
 
 export type Counts = {
   applicantOk: boolean;

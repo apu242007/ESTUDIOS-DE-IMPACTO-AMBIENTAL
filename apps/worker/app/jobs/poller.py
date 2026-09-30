@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from app.jobs.docs import run_docs_job
 from app.jobs.gps import check_signature, gdb_to_gpx, match_waypoints, parse_gpx
 from app.jobs.layers import LayerResult, process_layer
 
@@ -127,7 +128,8 @@ def run_gps_job(client: Any, job: dict[str, Any]) -> None:
 
 def poll_once(client: Any) -> bool:
     """Reclama y procesa un trabajo (capas primero, luego GPS). True si habia uno."""
-    for table, run in (("layer_imports", run_layer_job), ("gps_imports", run_gps_job)):
+    for table, run in (("layer_imports", run_layer_job), ("gps_imports", run_gps_job),
+                       ("document_builds", run_docs_job)):
         job = client.rpc("claim_job", {"p_table": table}).execute().data
         if job:
             run(client, job)

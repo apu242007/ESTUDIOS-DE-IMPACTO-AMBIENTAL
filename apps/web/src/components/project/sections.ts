@@ -31,6 +31,7 @@ export const GROUPS: Group[] = [
       { id: "fotos", label: "Fotos" },
     ],
   },
+  { title: "Entrega", items: [{ id: "informe", label: "Informe" }] },
 ];
 
 export const isSection = (v: string | null): v is SectionId =>
