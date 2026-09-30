@@ -20,6 +20,7 @@ import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
 import { Comparacion } from "@/components/project/comparacion";
 import { Mapa } from "@/components/project/mapa";
+import { Relevamiento } from "@/components/project/relevamiento";
 import { parseThresholds } from "@/lib/threshold";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre } from "@/lib/data/projects";
@@ -140,6 +141,7 @@ function ProjectDetail() {
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="alcance">Alcance</TabsTrigger>
           <TabsTrigger value="capas">Capas</TabsTrigger>
+          <TabsTrigger value="relevamiento">Relevamiento</TabsTrigger>
           <TabsTrigger value="comparacion">Comparación</TabsTrigger>
           <TabsTrigger value="mapa">Mapa</TabsTrigger>
           {isAdmin && <TabsTrigger value="catastro">Catastro</TabsTrigger>}
@@ -164,6 +166,9 @@ function ProjectDetail() {
         </TabsContent>
         <TabsContent value="capas" className="pt-4">
           <Capas orgId={orgId} projectId={project.id} />
+        </TabsContent>
+        <TabsContent value="relevamiento" className="pt-4">
+          {tab === "relevamiento" && <Relevamiento orgId={orgId} projectId={project.id} />}
         </TabsContent>
         <TabsContent value="comparacion" className="pt-4">
           <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />

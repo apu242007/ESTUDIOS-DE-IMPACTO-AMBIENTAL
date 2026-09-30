@@ -26,3 +26,14 @@ docs/private/
 
 # worktrees de agentes
 .claude/
+
+# SQL combinado para pegar en el SQL Editor (se regenera desde migrations/)
+supabase/ALL_MIGRATIONS.sql
+
+# config MCP local
+.mcp.json
+
+# service worker generado por serwist en cada build
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+apps/web/public/swe-worker-*.js
