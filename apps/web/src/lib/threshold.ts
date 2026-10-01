@@ -17,6 +17,9 @@ export function verdict(declared: number | null, measured: number | null, t: Thr
   return pct <= t.pct || abs <= t.abs_m ? "dentro" : "fuera";
 }
 
+/** false si el umbral guardado no tiene el formato esperado: parseThresholds usaría el valor por defecto sin avisar. */
+export const thresholdsValid = (raw: unknown): boolean => thresholdsSchema.safeParse(raw).success;
+
 export function parseThresholds(raw: unknown): Thresholds {
   const r = thresholdsSchema.safeParse(raw);
   return r.success ? r.data : DEFAULT_THRESHOLDS;

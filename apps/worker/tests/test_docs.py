@@ -221,6 +221,71 @@ def test_job_completo_sube_docx_y_deja_log(monkeypatch: pytest.MonkeyPatch) -> N
         assert esperado in t
 
 
+def test_job_final_con_foto_faltante_falla_y_lista_el_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    c = FakeClient(base_tables(), {"o/p/photos/f1.jpg": jpeg()})
+    final = {**job(), "params": {**job()["params"], "final": True}}
+
+    run_docs_job(c, final)
+
+    up = c.updates[-1]
+    assert up["status"] == "error"
+    assert "La versión FINAL no puede generarse porque se omitieron elementos" in up["log"]
+    assert "o/p/photos/roto.jpg" in up["log"]
+    assert "Foto omitida" in up["log"]
+    assert not any(p.startswith("o/p/docs/") for p in c.uploads)    # falla antes de subir nada
+
+
+def _foto_sin_archivo() -> dict[str, Any]:
+    return {"id": "ph9", "category": "locacion", "path_original": None, "caption": None, "taken_at": None, "project_id": "p"}
+
+
+def test_job_final_con_foto_sin_archivo_subido_falla(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    t = base_tables()
+    t["photos"] = [t["photos"][0], _foto_sin_archivo()]
+    c = FakeClient(t, {"o/p/photos/f1.jpg": jpeg(), "o/p/photos/roto.jpg": jpeg()})
+
+    run_docs_job(c, {**job(), "params": {**job()["params"], "final": True}})
+
+    up = c.updates[-1]
+    assert up["status"] == "error" and "sin archivo subido" in up["log"]
+
+
+def test_job_borrador_con_foto_sin_archivo_sigue_listo_y_avisa(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    t = base_tables()
+    t["photos"] = [t["photos"][0], _foto_sin_archivo()]
+    c = FakeClient(t, {"o/p/photos/f1.jpg": jpeg(), "o/p/photos/roto.jpg": jpeg()})
+
+    run_docs_job(c, job())
+
+    up = c.updates[-1]
+    assert up["status"] == "listo" and "sin archivo subido" in up["log"]
+
+
+def test_final_con_final_texto_no_cuenta_como_final(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    c = FakeClient(base_tables(), {"o/p/photos/f1.jpg": jpeg()})
+
+    run_docs_job(c, {**job(), "params": {**job()["params"], "final": "true"}})   # texto, no booleano: es borrador
+
+    up = c.updates[-1]
+    assert up["status"] == "listo" and "package_path" not in up
+
+
+def test_job_informa_caracteres_de_control_quitados(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    tables = base_tables()
+    tables["photos"][0]["caption"] = "Vista\x0b general"
+    c = FakeClient(tables, {"o/p/photos/f1.jpg": jpeg()})
+
+    run_docs_job(c, job())
+
+    assert c.updates[-1]["status"] == "listo"
+    assert "Se quitaron 1 caracteres de control de los textos" in c.updates[-1]["log"]
+
+
 def test_job_con_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(docs, "find_soffice", lambda: "soffice")
 

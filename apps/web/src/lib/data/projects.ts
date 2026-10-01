@@ -8,6 +8,7 @@ import {
   type ProjectFormValues,
   type ProjectRow,
 } from "@/lib/schemas";
+import { DEFAULT_THRESHOLDS } from "@/lib/threshold";
 import { changed, must, ok, parseAll } from "./util";
 
 export async function listProjects(orgId: string): Promise<ProjectRow[]> {
@@ -17,6 +18,15 @@ export async function listProjects(orgId: string): Promise<ProjectRow[]> {
     .eq("org_id", orgId)
     .order("created_at", { ascending: false });
   return parseAll(projectRowSchema, must(res));
+}
+
+export async function resetThresholds(projectId: string): Promise<void> {
+  const res = await createClient()
+    .from("projects")
+    .update({ thresholds: DEFAULT_THRESHOLDS })
+    .eq("id", projectId)
+    .select("id");
+  changed(res);
 }
 
 export async function getProject(id: string): Promise<ProjectRow> {

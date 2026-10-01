@@ -58,7 +58,8 @@ export const projectRowSchema = z.object({
   applicant: applicantSchema,
   consultant: consultantSchema,
   crs_epsg: z.number(),
-  thresholds: z.object({ pct: z.number(), abs_m: z.number() }),
+  // tolerante: un umbral con formato inválido no debe ocultar el proyecto; la pantalla avisa y permite restablecerlo
+  thresholds: z.unknown(),
   created_at: z.string(),
   clients: z.object({ name: z.string() }).nullable().optional(),
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_THRESHOLDS as T, parseThresholds, verdict } from "./threshold";
+import { DEFAULT_THRESHOLDS as T, parseThresholds, thresholdsValid, verdict } from "./threshold";
 
 describe("verdict (umbral 1 % o 5 m)", () => {
   it("PAD 58: 85 vs 84 m supera 1 % pero cumple 5 m → dentro", () => {
@@ -21,6 +21,19 @@ describe("verdict (umbral 1 % o 5 m)", () => {
     expect(verdict(null, 50, T)).toBe("sin_dato");
     expect(verdict(50, null, T)).toBe("sin_dato");
     expect(verdict(0, 50, T)).toBe("sin_dato");
+  });
+});
+
+describe("thresholdsValid", () => {
+  it("detecta el umbral guardado con formato inválido (texto en vez de número)", () => {
+    expect(thresholdsValid({ pct: 1, abs_m: 5 })).toBe(true);
+    expect(thresholdsValid({ pct: "1", abs_m: "5" })).toBe(false);
+    expect(thresholdsValid(null)).toBe(false);
+  });
+  it("rechaza faltantes, negativos y NaN", () => {
+    for (const bad of [{}, { pct: 1 }, { pct: -1, abs_m: 5 }, { pct: Number.NaN, abs_m: 5 }, undefined]) {
+      expect(thresholdsValid(bad)).toBe(false);
+    }
   });
 });
 

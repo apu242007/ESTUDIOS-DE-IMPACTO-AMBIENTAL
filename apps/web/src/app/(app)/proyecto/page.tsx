@@ -36,10 +36,10 @@ import { GROUPS, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
 import { ArrowLeft } from "lucide-react";
 import { progress, sectionStatus, type SectionId } from "@/lib/checklist";
-import { parseThresholds } from "@/lib/threshold";
+import { DEFAULT_THRESHOLDS, parseThresholds, thresholdsValid } from "@/lib/threshold";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/auth-provider";
-import { addCadastre, deleteCadastre, getProject, listCadastre } from "@/lib/data/projects";
+import { addCadastre, deleteCadastre, getProject, listCadastre, resetThresholds } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
 import { cadastreFormSchema } from "@/lib/schemas";
 
@@ -145,6 +145,16 @@ function ProjectDetail() {
     router.replace(`/proyecto/?id=${id}&s=${s}`, { scroll: false });
   };
 
+  const reset = useMutation({
+    mutationFn: () => resetThresholds(id as string),
+    onSuccess: () => {
+      toast.success("Umbral restablecido");
+      void qc.invalidateQueries({ queryKey: ["project", id] });
+      void qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
   if (!id) return <p>Falta el identificador del proyecto.</p>;
   if (isLoading) return <p>Cargando…</p>;
   if (error || !project || !orgId) {
@@ -177,6 +187,18 @@ function ProjectDetail() {
           )}
         </div>
       </header>
+
+      {!thresholdsValid(project.thresholds) && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-warn bg-warn/10 p-3 text-base">
+          <p className="min-w-0 flex-1">
+            El umbral de comparación guardado en este proyecto no es válido y se está usando el valor por defecto (
+            {DEFAULT_THRESHOLDS.pct} % o {DEFAULT_THRESHOLDS.abs_m} m). Restablecelo para dejarlo guardado.
+          </p>
+          <Button variant="outline" disabled={reset.isPending} onClick={() => reset.mutate()}>
+            Restablecer umbral
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[13.5rem_minmax(0,1fr)]">
         <nav aria-label="Secciones del proyecto" className="-mx-4 min-w-0 md:sticky md:top-24 md:mx-0 md:self-start">

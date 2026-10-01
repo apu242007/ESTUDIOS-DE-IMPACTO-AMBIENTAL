@@ -448,7 +448,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
     cats = sel("catalog_photo_categories", "key, label, sort_order", org_id=org)
 
     # --- contenido de las secciones (catálogos + lo que el profesional eligió o ajustó en este proyecto)
-    from app.core.text_template import project_vars, xml_safe
+    from app.core.text_template import project_vars, xml_safe_counted
 
     blocks = sel("catalog_text_blocks", "key, scope, title, template, sort_order", org_id=org)
     penv = {r["item_id"]: r for r in sel("project_environment", "item_id, included, body_override", project_id=pid)}
@@ -472,7 +472,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
         g = w.get("geojson") or {}
         if g.get("type") == "Point" and g.get("coordinates"):
             wells.append({"name": w["name"], "lon": g["coordinates"][0], "lat": g["coordinates"][1]})
-    return xml_safe({
+    context, removed_count = xml_safe_counted({
         "vars": project_vars(proj, client_row.get("name")),
         "sections": [b for b in blocks if b["scope"] == "seccion"],
         "declarations": [b for b in blocks if b["scope"] == "declaracion"],
@@ -501,6 +501,8 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
         "gps": [{"name": Path(g["file_path"]).name, "kind": str(g["file_kind"]).upper(), "n": g.get("n_points"), "files": [g["file_path"]]}
                 for g in sel("gps_imports", "file_path, file_kind, n_points, status", project_id=pid) if g["status"] == "listo"],
     })
+    context["_xml_removed"] = removed_count
+    return context
 
 
 def _own_path(ctx: dict[str, Any], path: str) -> str:
@@ -515,14 +517,19 @@ def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: 
     label = {c["key"]: c["label"] for c in ctx["photo_categories"]}
     out: list[dict[str, Any]] = []
     for ph in sorted(ctx["photos"], key=lambda x: (order.get(x["category"], 999), x.get("taken_at") or "")):
-        if not ph.get("path_original"):
+        if not ph.get("path_original"):  # subida sin terminar: se informa (y la versión final se rechaza)
+            message = f"Foto omitida (sin archivo subido, categoría {ph.get('category')})"
+            log.append(message)
+            ctx.setdefault("_omitted", []).append(message)
             continue
         try:
             raw = client.storage.from_(BUCKET).download(_own_path(ctx, ph["path_original"]))
             out.append({"category": ph["category"], "label": label.get(ph["category"], ph["category"]),
                         "caption": ph.get("caption"), "jpeg": prepare_photo(raw, params["photo_max_px"], params["jpeg_quality"])})
-        except Exception as e:  # una foto rota no debe tirar todo el informe: se informa en el log
-            log.append(f"Foto omitida ({ph['path_original']}): {e}")
+        except Exception as e:  # en borrador se informa; la versión final falla después de reunir todas las omisiones
+            message = f"Foto omitida ({ph['path_original']}): {e}"
+            log.append(message)
+            ctx.setdefault("_omitted", []).append(message)
     return out
 
 
@@ -554,11 +561,20 @@ def make_package(client: Any, ctx: dict[str, Any], docx: bytes, pdf: bytes | Non
             z.writestr("Informe.pdf", pdf)
         z.writestr("Interferencias.kmz", interferencias_kmz(ctx["interferencias"]))
         for f in ctx["layers"] + ctx["gps"]:
+            if not f.get("files"):
+                message = f"Paquete: {f.get('name')} figura en el informe pero no tiene archivos para incluir"
+                log.append(message)
+                ctx.setdefault("_omitted", []).append(message)
             for path in f.get("files") or []:
                 try:
                     z.writestr(f"Anexos georreferenciados/{Path(path).name}", client.storage.from_(BUCKET).download(_own_path(ctx, path)))
-                except Exception as e:  # un archivo que falta no impide entregar el resto: se avisa
-                    log.append(f"Paquete: no se pudo incluir {Path(path).name} ({e})")
+                except Exception as e:  # se reúnen todos los anexos faltantes antes de rechazar el paquete final
+                    message = f"Paquete: no se pudo incluir {Path(path).name} ({e})"
+                    log.append(message)
+                    ctx.setdefault("_omitted", []).append(message)
+    if ctx.get("_omitted"):
+        raise ValueError("La versión FINAL no puede generarse porque se omitieron elementos:\n- "
+                         + "\n- ".join(ctx["_omitted"]))
     return buf.getvalue()
 
 
@@ -569,14 +585,23 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
     try:
         params = clean_params(job.get("params"))
         ctx = load_context(client, job)
+        if ctx.get("_xml_removed"):
+            log.append(f"Se quitaron {ctx['_xml_removed']} caracteres de control de los textos "
+                       "(suelen venir de pegar desde Word).")
+        ctx["_omitted"] = []
         photos = _load_photos(client, ctx, params, log)
         ctx["figure_images"] = {}
         for kind, path in (ctx.get("figures") or {}).items():
             try:
                 ctx["figure_images"][kind] = client.storage.from_(BUCKET).download(_own_path(ctx, path))
-            except Exception as e:  # una figura que falta no impide el informe
-                log.append(f"Figura omitida ({kind}): {e}")
+            except Exception as e:  # en borrador se informa; la versión final se rechaza al armar el paquete
+                message = f"Figura omitida ({kind}): {e}"
+                log.append(message)
+                ctx["_omitted"].append(message)
         log.append(f"{len(photos)} foto(s) a {params['photo_max_px']} px, calidad {params['jpeg_quality']}.")
+        if ctx.get("final") and ctx["_omitted"]:  # falla antes de armar y subir nada
+            raise ValueError("La versión FINAL no puede generarse porque se omitieron elementos:\n- "
+                             + "\n- ".join(ctx["_omitted"]))
 
         if job.get("template_id"):
             trow = client.table("document_templates").select("file_path").eq("id", job["template_id"]).limit(1).execute().data

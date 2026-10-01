@@ -46,13 +46,30 @@ def paragraphs(text: str) -> list[str]:
 _XML_INVALIDO = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 
 
+def xml_safe_counted(obj: Any) -> tuple[Any, int]:
+    """Quita caracteres no admitidos por XML y devuelve también cuántos encontró."""
+    if isinstance(obj, str):
+        return _XML_INVALIDO.subn("", obj)
+    if isinstance(obj, list):
+        clean: list[Any] = []
+        removed = 0
+        for item in obj:
+            clean_item, item_removed = xml_safe_counted(item)
+            clean.append(clean_item)
+            removed += item_removed
+        return clean, removed
+    if isinstance(obj, dict):
+        clean_dict: dict[Any, Any] = {}
+        removed = 0
+        for key, value in obj.items():
+            clean_value, value_removed = xml_safe_counted(value)
+            clean_dict[key] = clean_value
+            removed += value_removed
+        return clean_dict, removed
+    return obj, 0
+
+
 def xml_safe(obj: Any) -> Any:
     """Quita de todos los textos (recursivo) los caracteres que XML no admite. Un texto pegado desde Word con un
     carácter de control haría fallar el armado completo del .docx (python-docx lanza ValueError)."""
-    if isinstance(obj, str):
-        return _XML_INVALIDO.sub("", obj)
-    if isinstance(obj, list):
-        return [xml_safe(x) for x in obj]
-    if isinstance(obj, dict):
-        return {k: xml_safe(v) for k, v in obj.items()}
-    return obj
+    return xml_safe_counted(obj)[0]

@@ -178,14 +178,15 @@ class Store:
     def upload(self, p: str, data: bytes, _o: Any): self.uploads[p] = data
 
 
-def test_paquete_final_reune_informe_kmz_y_anexos_y_avisa_lo_que_falta() -> None:
+def test_paquete_final_reune_informe_kmz_y_anexos() -> None:
     c = completo()
     c["interferencias"] = [{"figura": "Cruce", "descripcion": "d", "_lat": -38.1, "_lon": -68.5, "_ele": None}]
     c["layers"] = [{"name": "Caminos", "kind": "SHP", "n": 5, "files": ["o/p/layers/i1/Caminos.shp", "o/p/layers/i1/Caminos.dbf"]}]
     c["gps"] = [{"name": "PAD58.gdb", "kind": "GDB", "n": 30, "files": ["o/p/gps/g1/PAD58.gdb"]}]
     log: list[str] = []
     c["_org"] = "o"
-    store = Store({"o/p/layers/i1/Caminos.shp": b"shp", "o/p/gps/g1/PAD58.gdb": b"gdb"})   # falta el .dbf
+    store = Store({"o/p/layers/i1/Caminos.shp": b"shp", "o/p/layers/i1/Caminos.dbf": b"dbf",
+                   "o/p/gps/g1/PAD58.gdb": b"gdb"})
 
     from app.jobs.docs import _own_path
     assert _own_path(c, "o/p/x.jpg") == "o/p/x.jpg"
@@ -196,9 +197,30 @@ def test_paquete_final_reune_informe_kmz_y_anexos_y_avisa_lo_que_falta() -> None
             continue
         raise AssertionError(malo)
     z = zipfile.ZipFile(io.BytesIO(make_package(store, c, b"DOCX", b"%PDF", log)))
-    assert sorted(z.namelist()) == ["Anexos georreferenciados/Caminos.shp", "Anexos georreferenciados/PAD58.gdb",
+    assert sorted(z.namelist()) == ["Anexos georreferenciados/Caminos.dbf", "Anexos georreferenciados/Caminos.shp",
+                                    "Anexos georreferenciados/PAD58.gdb",
                                     "Informe.docx", "Informe.pdf", "Interferencias.kmz"]
-    assert any("Caminos.dbf" in l for l in log)
+    assert log == []
+
+
+def test_paquete_final_falla_listando_todas_las_omisiones() -> None:
+    c = completo()
+    c.update({
+        "final": True,
+        "_org": "o",
+        "_omitted": ["Foto omitida (o/p/photos/roto.jpg): falta"],
+        "interferencias": [],
+        "layers": [{"files": ["o/p/layers/Caminos.dbf", "o/p/layers/Caminos.shx"]}],
+        "gps": [],
+    })
+    log: list[str] = []
+
+    with pytest.raises(ValueError) as error:
+        make_package(Store({}), c, b"DOCX", None, log)
+
+    message = str(error.value)
+    for item in ("o/p/photos/roto.jpg", "Caminos.dbf", "Caminos.shx"):
+        assert item in message
 
 
 def test_solo_la_version_final_genera_paquete(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -315,3 +337,12 @@ def test_texto_con_caracteres_de_control_no_rompe_el_informe() -> None:
     assert "Texto con salto vertical de PAD 58." in t
     assert xml_safe({"a": ["x\x01y", {"b": "z\x1f"}]}) == {"a": ["xy", {"b": "z"}]}
     assert xml_safe("tab\tsalto\nok") == "tab\tsalto\nok"       # tab y salto de línea sí son válidos
+
+
+def test_xml_safe_counted_devuelve_texto_limpio_y_cantidad() -> None:
+    from app.core.text_template import xml_safe_counted
+
+    limpio, quitados = xml_safe_counted({"a": ["x\x01y\x02", {"b": "z\x1f"}], "valido": "tab\ty\nsalto"})
+
+    assert limpio == {"a": ["xy", {"b": "z"}], "valido": "tab\ty\nsalto"}
+    assert quitados == 3
