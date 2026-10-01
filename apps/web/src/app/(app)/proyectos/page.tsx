@@ -38,7 +38,7 @@ export default function ProyectosPage() {
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: projects = [], isLoading, error: listError } = useQuery({
     queryKey: ["projects", orgId],
     queryFn: () => listProjects(orgId as string),
     enabled: !!orgId,
@@ -79,6 +79,12 @@ export default function ProyectosPage() {
           Nuevo proyecto
         </Button>
       </div>
+      {listError && (
+        <p role="alert" className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          No se pudo cargar la lista de proyectos: {errMsg(listError)}. Si hay proyectos que no aparecen, un dato guardado
+          con formato inválido puede estar ocultándolos.
+        </p>
+      )}
       {clients.length === 0 && (
         <p className="rounded-lg border bg-background p-3 text-sm">
           Para crear un proyecto primero cargá un cliente en{" "}

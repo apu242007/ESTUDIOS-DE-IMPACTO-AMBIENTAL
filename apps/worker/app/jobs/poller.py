@@ -21,12 +21,11 @@ MAIN_EXT = {"shp": "shp", "kmz": "kmz", "kml": "kml"}
 
 def _project_epsg(client: Any, project_id: str) -> int:
     from app.core.crs import DEFAULT_PROJECT_EPSG
-    try:
-        r = client.table("projects").select("*").eq("id", project_id).limit(1).execute()
-        row = (r.data or [{}])[0]
-        return int(row.get("epsg") or row.get("crs_epsg") or DEFAULT_PROJECT_EPSG)
-    except Exception:  # la columna puede no existir: se usa el EPSG por defecto
-        return DEFAULT_PROJECT_EPSG
+    # sin try/except: un error de red o de base NO debe caer al EPSG por defecto (geometría mal proyectada sin aviso);
+    # el trabajo falla y queda en error. Solo un proyecto sin CRS cargado usa el valor por defecto.
+    r = client.table("projects").select("crs_epsg").eq("id", project_id).limit(1).execute()
+    row = (r.data or [{}])[0]
+    return int(row.get("crs_epsg") or DEFAULT_PROJECT_EPSG)
 
 
 def _feature_row(job: dict[str, Any], f: Any) -> dict[str, Any]:
