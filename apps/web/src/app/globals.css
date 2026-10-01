@@ -13,6 +13,8 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-paper: var(--paper);
+  --color-jarilla: var(--jarilla);
+  --color-basalto: var(--basalto);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -52,44 +54,48 @@
 }
 
 :root {
-  --background: #f2f4f1;          /* papel mineral */
-  --foreground: #14201e;          /* tinta basalto */
+  --background: #eceee7;          /* papel mineral */
+  --foreground: #11201f;          /* tinta basalto */
   --card: #ffffff;
   --card-foreground: #14201e;
   --popover: #ffffff;
   --popover-foreground: #14201e;
-  --primary: #0f4c5c;             /* verde-azul de río */
+  --primary: #0b5266;             /* río */
   --primary-foreground: #f5faf9;
-  --secondary: #e4ebe8;
+  --secondary: #e0e5df;
   --secondary-foreground: #14201e;
-  --muted: #e9eeeb;
+  --muted: #e3e7e0;
   --muted-foreground: #445451;    /* 7,1:1 sobre el papel */
-  --accent: #dfe9e6;
+  --accent: #d9e5e2;
   --accent-foreground: #0b3843;
-  --destructive: #b42318;
-  --border: #c5d0cc;
+  --destructive: #a8321f;
+  --border: #cdd5cf;
   --input: #9fb0ab;
   --ring: #0f4c5c;
-  --ok: #1f7a4d;                  /* balizado completo */
-  --warn: #8a5a00;                /* ocre de jarilla: pendiente / atención */
-  --paper: #f2f4f1;
+  --ok: #2b7a4b;                  /* musgo: balizado completo */
+  --warn: #8a5a00;                /* ocre de jarilla en texto: pendiente */
+  --jarilla: #d49a1c;             /* ocre de jarilla en superficie: acción y foco de campo */
+  --basalto: #11201f;
+  --paper: #eceee7;
   --chart-1: #0f4c5c;
   --chart-2: #1f7a4d;
   --chart-3: #8a5a00;
   --chart-4: #b42318;
   --chart-5: #445451;
-  --radius: 0.5rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #14201e;
-  --sidebar-primary: #0f4c5c;
-  --sidebar-primary-foreground: #f5faf9;
-  --sidebar-accent: #dfe9e6;
-  --sidebar-accent-foreground: #0b3843;
-  --sidebar-border: #c5d0cc;
+  --radius: 0.4rem;
+  --sidebar: #11201f;
+  --sidebar-foreground: #e6ece8;
+  --sidebar-primary: #d49a1c;
+  --sidebar-primary-foreground: #11201f;
+  --sidebar-accent: #1d3331;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #26403d;
   --sidebar-ring: #0f4c5c;
 }
 
 .dark {
+  --jarilla: #e3ad3a;
+  --basalto: #0a1211;
   /* misma familia verde-azulada que el tema claro */
   --background: #0e1615;
   --foreground: #e8efed;

@@ -34,7 +34,8 @@ import { Relevamiento } from "@/components/project/relevamiento";
 import { Resumen } from "@/components/project/resumen";
 import { GROUPS, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
-import { sectionStatus, type SectionId } from "@/lib/checklist";
+import { ArrowLeft } from "lucide-react";
+import { progress, sectionStatus, type SectionId } from "@/lib/checklist";
 import { parseThresholds } from "@/lib/threshold";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/auth-provider";
@@ -159,17 +160,23 @@ function ProjectDetail() {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      <div>
-        <Link href="/proyectos" className="inline-flex min-h-11 items-center text-base text-muted-foreground underline">
-          ← Proyectos
+      <header className="border-b-2 border-basalto pb-4">
+        <Link href="/proyectos" className="inline-flex min-h-11 items-center gap-1 text-base text-muted-foreground hover:text-foreground">
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          Proyectos
         </Link>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="font-heading text-3xl font-semibold">{project.name}</h1>
+        <h1 className="max-w-4xl font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{project.name}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
+          <span className="font-medium text-foreground">{project.clients?.name}</span>
           <Badge variant="secondary">{project.doc_type}</Badge>
-          {project.code && <span className="tnum font-mono text-muted-foreground">{project.code}</span>}
+          {project.code && <span className="tnum font-mono">{project.code}</span>}
+          {items.length > 0 && (
+            <span className="tnum ml-auto text-sm" aria-live="polite">
+              {progress(items).done} de {progress(items).total} pasos listos
+            </span>
+          )}
         </div>
-        <p className="text-base text-muted-foreground">{project.clients?.name}</p>
-      </div>
+      </header>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[13.5rem_minmax(0,1fr)]">
         <nav aria-label="Secciones del proyecto" className="-mx-4 min-w-0 md:sticky md:top-24 md:mx-0 md:self-start">
@@ -180,7 +187,7 @@ function ProjectDetail() {
               return (
                 <div key={g.title} className="flex shrink-0 gap-2 md:grid md:gap-1">
                   {g.title !== "Inicio" && (
-                    <p className="hidden px-3 text-sm font-semibold text-muted-foreground md:block">{g.title}</p>
+                    <p className="hidden px-3 pt-1 text-sm font-semibold text-primary md:block">{g.title}</p>
                   )}
                   {visibles.map((it) => {
                     const active = it.id === section;
@@ -192,16 +199,19 @@ function ProjectDetail() {
                         onClick={() => go(it.id)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-base font-medium transition-colors md:w-full",
+                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors md:w-full",
                           active
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-card hover:bg-accent",
+                            ? "border-jarilla bg-basalto text-white"
+                            : "border-transparent bg-card/70 text-foreground/80 hover:bg-card hover:text-foreground md:bg-transparent",
                         )}
                       >
                         {st && (
                           <span
                             aria-hidden="true"
-                            className={cn("size-2.5 shrink-0 rounded-full ring-2 ring-white/80", st === "ok" ? "bg-ok" : "bg-warn")}
+                            className={cn(
+                              "size-2.5 shrink-0 rounded-full",
+                              st === "ok" ? "bg-ok" : active ? "bg-jarilla" : "border-2 border-warn bg-transparent",
+                            )}
                           />
                         )}
                         {it.label}

@@ -14,22 +14,22 @@ export function Resumen({
   if (loading) return <p className="text-muted-foreground">Calculando el estado del proyecto…</p>;
 
   return (
-    <div className="grid gap-6">
-      <section aria-labelledby="sig" className="rounded-xl border-2 border-primary bg-card p-5 sm:p-6">
-        <h2 id="sig" className="text-base font-semibold text-primary">
+    <div className="grid gap-8">
+      <section aria-labelledby="sig" className="relative overflow-hidden rounded-lg bg-basalto p-6 text-white sm:p-8">
+        <h2 id="sig" className="text-base font-semibold text-jarilla">
           {next ? "Siguiente paso" : "Todo listo"}
         </h2>
         {next ? (
           <>
-            <p className="mt-2 font-heading text-2xl font-semibold">{next.label}</p>
-            <p className="mt-1 max-w-prose text-base text-muted-foreground">{next.detail}</p>
-            <Button size="lg" className="mt-4" onClick={() => onGo(next.section)}>
+            <p className="mt-2 font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{next.label}</p>
+            <p className="mt-2 max-w-prose text-base text-white/75">{next.detail}</p>
+            <Button variant="jarilla" size="lg" className="mt-5" onClick={() => onGo(next.section)}>
               Ir a {next.label.toLowerCase()}
               <ArrowRight aria-hidden="true" />
             </Button>
           </>
         ) : (
-          <p className="mt-2 max-w-prose text-base">
+          <p className="mt-2 max-w-prose text-lg">
             Los datos, capas, relevamiento y GPS están completos. Ya podés revisar los resultados.
           </p>
         )}
@@ -37,44 +37,54 @@ export function Resumen({
 
       <section aria-labelledby="lista">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 id="lista" className="font-heading text-xl font-semibold">Estado del proyecto</h2>
+          <h2 id="lista" className="font-heading text-2xl font-semibold tracking-tight">Recorrido del proyecto</h2>
           <p className="tnum text-sm text-muted-foreground" aria-live="polite">
             {done} de {total} listos
           </p>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Avance del proyecto">
-          <div className="h-full bg-ok transition-[width] duration-300" style={{ width: `${(done / total) * 100}%` }} />
-        </div>
+        <div className="sr-only" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Avance del proyecto" />
 
-        <ul className="mt-4 divide-y rounded-xl border bg-card">
-          {items.map((i) => (
-            <li key={i.id}>
-              <button
-                type="button"
-                onClick={() => onGo(i.section)}
-                className="flex min-h-16 w-full cursor-pointer items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-muted/60"
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-full border-2",
-                    i.done ? "border-ok bg-ok text-white" : "border-warn text-warn",
-                  )}
+        {/* Transecta: cada paso es un waypoint sobre la línea */}
+        <ol className="mt-5">
+          {items.map((i, idx) => {
+            const isNext = next?.id === i.id;
+            return (
+              <li key={i.id} className="relative">
+                {idx < items.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className={cn("absolute left-[1.05rem] top-9 bottom-[-0.25rem] w-0.5", i.done ? "bg-ok" : "border-l-2 border-dashed border-border")}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => onGo(i.section)}
+                  className="group flex min-h-16 w-full cursor-pointer items-center gap-4 rounded-md py-2 pr-3 text-left transition-colors hover:bg-card"
                 >
-                  {i.done ? <Check className="size-5" /> : <span className="size-2 rounded-full bg-warn" />}
-                </span>
-                <span className="grid min-w-0 flex-1">
-                  <span className="text-base font-medium">
-                    {i.label}
-                    <span className="sr-only">{i.done ? " — listo" : " — pendiente"}</span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "tnum relative z-10 grid size-9 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-medium",
+                      i.done && "border-ok bg-ok text-white",
+                      !i.done && isNext && "border-jarilla bg-jarilla text-basalto",
+                      !i.done && !isNext && "border-border bg-background text-muted-foreground",
+                    )}
+                  >
+                    {i.done ? <Check className="size-5" /> : String(idx + 1).padStart(2, "0")}
                   </span>
-                  <span className="text-sm text-muted-foreground">{i.detail}</span>
-                </span>
-                <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-              </button>
-            </li>
-          ))}
-        </ul>
+                  <span className="grid min-w-0 flex-1">
+                    <span className="text-base font-semibold">
+                      {i.label}
+                      <span className="sr-only">{i.done ? " — listo" : isNext ? " — siguiente" : " — pendiente"}</span>
+                    </span>
+                    <span className="text-sm text-muted-foreground">{i.detail}</span>
+                  </span>
+                  <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </section>
     </div>
   );

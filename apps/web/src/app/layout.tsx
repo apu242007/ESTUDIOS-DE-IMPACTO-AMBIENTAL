@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     // las variables de fuente van en <html>: `html { font-family }` (globals.css) las necesita en su mismo nivel
     <html lang="es-AR" suppressHydrationWarning className={`${publicSans.variable} ${sourceSerif.variable} ${plexMono.variable}`}>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

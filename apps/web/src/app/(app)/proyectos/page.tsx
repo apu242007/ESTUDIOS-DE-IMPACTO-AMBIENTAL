@@ -69,7 +69,12 @@ export default function ProyectosPage() {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Proyectos</h1>
+        <div>
+          <h1 className="font-heading text-4xl font-semibold tracking-tight">Proyectos</h1>
+          <p className="text-base text-muted-foreground tnum">
+            {isLoading ? "Cargando…" : `${projects.length} ${projects.length === 1 ? "proyecto" : "proyectos"}`}
+          </p>
+        </div>
         <Button size="lg" className="h-11" onClick={() => setCreating(true)} disabled={clients.length === 0}>
           Nuevo proyecto
         </Button>
@@ -114,22 +119,30 @@ export default function ProyectosPage() {
               {!isLoading && rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    {projects.length === 0 ? "Todavía no hay proyectos." : "Sin resultados para la búsqueda."}
+                    {projects.length === 0
+                      ? "Todavía no hay proyectos. Creá el primero con “Nuevo proyecto”."
+                      : "Ningún proyecto coincide con la búsqueda."}
                   </TableCell>
                 </TableRow>
               )}
               {rows.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>{p.code ?? "—"}</TableCell>
-                  <TableCell className="font-medium">
-                    <Link href={`/proyecto?id=${p.id}`} className="underline-offset-2 hover:underline">
+                  <TableCell className="text-base font-semibold">
+                    <Link href={`/proyecto?id=${p.id}`} className="text-primary underline-offset-2 hover:underline">
                       {p.name}
                     </Link>
                   </TableCell>
                   <TableCell>{p.clients?.name ?? "—"}</TableCell>
                   <TableCell>{p.doc_type}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{STATUS_LABEL[p.status] ?? p.status}</Badge>
+                    <Badge variant="secondary" className="gap-1.5">
+                      <span
+                        aria-hidden="true"
+                        className={`size-2 rounded-full ${p.status === "entregado" || p.status === "cerrado" ? "bg-ok" : p.status === "revision" ? "bg-jarilla" : "bg-muted-foreground"}`}
+                      />
+                      {STATUS_LABEL[p.status] ?? p.status}
+                    </Badge>
                   </TableCell>
                   <TableCell className="space-x-2 text-right whitespace-nowrap">
                     <Link href={`/proyecto?id=${p.id}`} className={buttonVariants({ variant: "outline" })}>

@@ -48,7 +48,7 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Ingresar</CardTitle>
+        <CardTitle className="text-2xl font-semibold">Ingresar</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} method="post" className="grid gap-4" noValidate>
