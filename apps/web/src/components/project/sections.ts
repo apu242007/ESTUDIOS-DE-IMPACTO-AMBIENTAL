@@ -47,3 +47,29 @@ export const GROUPS: Group[] = [
 
 export const isSection = (v: string | null): v is SectionId =>
   GROUPS.some((g) => g.items.some((i) => i.id === v));
+
+/** Una línea por pantalla: para qué sirve. El Resumen no la necesita (ya dice qué falta). */
+export const SECTION_HELP: Partial<Record<SectionId, string>> = {
+  datos: "Solicitante, consultora, yacimiento y umbral de comparación del proyecto.",
+  alcance: "Las obras declaradas por el cliente, con su longitud o superficie.",
+  capas: "Subí los archivos SHP o KMZ del cliente; el sistema calcula las medidas reales.",
+  catastro: "Nomenclatura y titulares. Solo lo ven los administradores.",
+  relevamiento: "Fichas de campo con waypoints y fotos. Funciona sin conexión.",
+  gps: "Subí el .gdb del GPS de mano para cruzar los waypoints.",
+  comparacion: "Lo declarado contra lo calculado, con el umbral del proyecto.",
+  mapa: "Obras y capas sobre el mapa.",
+  figuras: "Mapas que se incrustan en el informe.",
+  interferencias: "Tabla de puntos de interés y cruces para el informe.",
+  fotos: "Anexo fotográfico por categoría, con epígrafes.",
+  textos: "Textos del informe a partir de plantillas; podés ajustarlos antes de generar.",
+  ambiente: "Descripción del ambiente según la zona del proyecto.",
+  impactos: "Matriz de acciones por factores, con la importancia calculada.",
+  declaracion: "Declaración de impacto por factor.",
+  pga: "Medidas del plan de gestión ambiental.",
+  control: "Revisión de calidad antes de generar el informe.",
+  informe: "Generá el Word y el PDF, revisá las versiones y aprobá.",
+};
+
+/** Secciones en el orden del flujo de trabajo, para "Anterior / Siguiente". */
+export const flatSections = (isAdmin: boolean): Section[] =>
+  GROUPS.flatMap((g) => g.items).filter((i) => !i.adminOnly || isAdmin);

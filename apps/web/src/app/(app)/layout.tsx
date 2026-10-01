@@ -34,7 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const items = NAV.filter((n) => !("adminOnly" in n && n.adminOnly) || isAdmin);
   const orgPicker =
     memberships.length > 1 ? (
-      <NativeSelect aria-label="Organización" className="w-full border-sidebar-border bg-sidebar-accent text-sidebar-foreground" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+      <NativeSelect aria-label="Organización" className="w-full border-sidebar-border bg-sidebar-accent px-2 text-sm text-sidebar-foreground" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
         {memberships.map((m) => (
           <option key={m.org_id} value={m.org_id}>{m.org_name}</option>
         ))}
@@ -129,7 +129,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </header>
-        <main id="contenido" className="mx-auto max-w-6xl p-4 sm:p-8">{children}</main>
+        <main id="contenido" className="mx-auto max-w-[90rem] p-4 sm:p-8">{children}</main>
       </div>
     </div>
   );

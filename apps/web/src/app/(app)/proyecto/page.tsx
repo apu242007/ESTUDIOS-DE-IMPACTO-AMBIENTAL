@@ -32,9 +32,9 @@ import { Comparacion } from "@/components/project/comparacion";
 import { Mapa } from "@/components/project/mapa";
 import { Relevamiento } from "@/components/project/relevamiento";
 import { Resumen } from "@/components/project/resumen";
-import { GROUPS, isSection } from "@/components/project/sections";
+import { GROUPS, SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { progress, sectionStatus, type SectionId } from "@/lib/checklist";
 import { DEFAULT_THRESHOLDS, parseThresholds, thresholdsValid } from "@/lib/threshold";
 import { cn } from "@/lib/utils";
@@ -167,6 +167,11 @@ function ProjectDetail() {
   }
 
   const status = sectionStatus(items);
+  const flow = flatSections(isAdmin);
+  const at = flow.findIndex((s) => s.id === section);
+  const current = flow[at];
+  const prev = at > 0 ? flow[at - 1] : null;
+  const next = at >= 0 && at < flow.length - 1 ? flow[at + 1] : null;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -221,7 +226,7 @@ function ProjectDetail() {
                         onClick={() => go(it.id)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors md:w-full",
+                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors md:min-h-9 md:w-full",
                           active
                             ? "border-jarilla bg-basalto text-white"
                             : "border-transparent bg-card/70 text-foreground/80 hover:bg-card hover:text-foreground md:bg-transparent",
@@ -248,7 +253,13 @@ function ProjectDetail() {
         </nav>
 
         <div className="min-w-0">
-          {section === "resumen" && <Resumen items={items} loading={loadingList} onGo={go} />}
+          {section !== "resumen" && (
+            <div className="mb-4">
+              <h2 className="font-heading text-2xl font-semibold tracking-tight">{current?.label}</h2>
+              {SECTION_HELP[section] && <p className="text-base text-muted-foreground">{SECTION_HELP[section]}</p>}
+            </div>
+          )}
+          {section === "resumen" &&<Resumen items={items} loading={loadingList} onGo={go} />}
           {section === "datos" && (
             <Card>
               <CardContent className="pt-4">
@@ -282,6 +293,21 @@ function ProjectDetail() {
           {section === "control" && <Control orgId={orgId} project={project} onGo={go} />}
           {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} status={project.status} isAdmin={isAdmin} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
+
+          <nav aria-label="Anterior y siguiente" className="mt-8 flex flex-wrap justify-between gap-3 border-t pt-4">
+            {prev ? (
+              <Button variant="outline" size="lg" onClick={() => go(prev.id)}>
+                <ArrowLeft aria-hidden="true" />
+                {prev.label}
+              </Button>
+            ) : <span />}
+            {next && (
+              <Button size="lg" onClick={() => go(next.id)}>
+                {next.label}
+                <ArrowRight aria-hidden="true" />
+              </Button>
+            )}
+          </nav>
         </div>
       </div>
     </div>
