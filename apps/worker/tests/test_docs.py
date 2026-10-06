@@ -397,3 +397,11 @@ def test_achicar_fotos_nunca_sube_la_calidad() -> None:
     assert docs.shrink_photos(1000, 75) == (800, 65)
     assert docs.shrink_photos(1000, 55) == (800, 50)
     assert docs.shrink_photos(1000, 40) == (800, 40)   # el usuario eligió 40: no se sube a 50
+
+
+def test_fichas_sin_numero_no_se_intercalan() -> None:
+    base = {"views": None, "lat": LAT, "lon": LON, "elevation_m": None, "code": "CR", "description": None}
+    wps = [{**base, "id": f"{l}{n}", "line_id": l, "number": n} for n in (1, 2, 3) for l in ("a", "b")]
+    rows, _ = build_interferencias(wps, {"CR": "Cruce"}, {"a": (None, "Ducto"), "b": (None, "Camino")})
+    trazas = [r["_traza"] for r in rows]
+    assert trazas == ["Ducto"] * 3 + ["Camino"] * 3 or trazas == ["Camino"] * 3 + ["Ducto"] * 3

@@ -18,6 +18,7 @@ export type LineInfo = { fichaNo: number | null };
 export type InterferenciaRow = {
   id: string;
   ficha: number | null;
+  lineId: string;
   number: number | null;
   figura: string;
   lat: string;
@@ -99,6 +100,7 @@ export function buildInterferencias(
     rows.push({
       id: w.id,
       ficha: lines.get(w.lineId)?.fichaNo ?? null,
+      lineId: w.lineId,
       number: w.number,
       figura,
       lat: dms.lat,
@@ -114,7 +116,9 @@ export function buildInterferencias(
     });
   }
 
-  rows.sort((a, b) => (a.ficha ?? 0) - (b.ficha ?? 0) || (a.number ?? 0) - (b.number ?? 0));
+  // la línea desempata, como en el informe: fichas sin número no intercalan sus waypoints
+  rows.sort((a, b) =>
+    (a.ficha ?? 0) - (b.ficha ?? 0) || a.lineId.localeCompare(b.lineId) || (a.number ?? 0) - (b.number ?? 0));
   return { rows, sinPosicion };
 }
 

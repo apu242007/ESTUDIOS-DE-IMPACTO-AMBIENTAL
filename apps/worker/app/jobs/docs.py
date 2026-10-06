@@ -119,8 +119,10 @@ def build_interferencias(waypoints: list[dict[str, Any]], codes: dict[str, str],
         ficha, traza = f if isinstance(f, tuple) else (f, None)
         rows.append({"figura": figura, "lat": dlat, "lon": dlon, "x": round(x), "y": round(y),
                      "cota": None if ele is None else round(ele), "descripcion": desc,
-                     "_lat": lat, "_lon": lon, "_ele": ele, "_ficha": ficha or 0, "_traza": traza, "_num": w.get("number") or 0})
-    rows.sort(key=lambda r: (r["_ficha"], r["_num"]))
+                     "_lat": lat, "_lon": lon, "_ele": ele, "_ficha": ficha or 0, "_traza": traza, "_num": w.get("number") or 0,
+                     "_line": str(w.get("line_id") or "")})
+    # la línea desempata: fichas sin número (todas 0) no intercalan sus waypoints ni repiten el título de traza
+    rows.sort(key=lambda r: (r["_ficha"], r["_line"], r["_num"]))
     return rows, sin
 
 

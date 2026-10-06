@@ -59,6 +59,14 @@ describe("buildInterferencias", () => {
     expect(r.rows[0]).toMatchObject({ figura: "Punto de interés", descripcion: "Inicio en PAD 60 BPO" });
   });
 
+  it("fichas sin número no intercalan sus waypoints (mismo orden que el informe)", () => {
+    const sinNum = new Map([["a", { fichaNo: null }], ["b", { fichaNo: null }]]);
+    const r = buildInterferencias(
+      [1, 2].flatMap((n) => ["a", "b"].map((l) => wp({ id: `${l}${n}`, lineId: l, number: n, code: "CR" }))), codes, sinNum,
+    );
+    expect(r.rows.map((x) => x.id)).toEqual(["a1", "a2", "b1", "b2"]);
+  });
+
   it("usa la plantilla del catálogo cuando existe", () => {
     const r = buildInterferencias([wp({ code: "CR", number: 8, views: "S-O" })], codes, lines, "{figura} N° {numero}, vistas {vistas}.");
     expect(r.rows[0].descripcion).toBe("Cruce N° 8, vistas S-O.");
