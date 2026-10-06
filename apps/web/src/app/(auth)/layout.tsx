@@ -6,16 +6,16 @@ import { Contours, Mark } from "@/components/brand";
 import { useAuth } from "@/lib/auth/auth-provider";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  const { session, loading, memberships } = useAuth();
+  const { session, offline, loading, memberships } = useAuth();
   const router = useRouter();
   const path = usePathname();
 
   useEffect(() => {
-    if (loading || !session) return;
+    if (loading || (!session && !offline)) return;
     // ya autenticado: onboarding si no tiene organización, si no a la app
     const target = memberships.length === 0 ? "/onboarding" : "/proyectos";
     if (!path.startsWith(target)) router.replace(target);
-  }, [loading, session, memberships.length, path, router]);
+  }, [loading, session, offline, memberships.length, path, router]);
 
   return (
     <div className="min-h-screen bg-background md:grid md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">

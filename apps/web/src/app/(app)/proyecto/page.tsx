@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
@@ -34,13 +35,14 @@ import { Relevamiento } from "@/components/project/relevamiento";
 import { Resumen } from "@/components/project/resumen";
 import { GROUPS, SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
 import { progress, sectionStatus, type SectionId } from "@/lib/checklist";
 import { DEFAULT_THRESHOLDS, parseThresholds, thresholdsValid } from "@/lib/threshold";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre, resetThresholds } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
+import { useOnline } from "@/lib/offline/use-online";
 import { cadastreFormSchema } from "@/lib/schemas";
 
 type CadastreValues = z.infer<typeof cadastreFormSchema>;
@@ -121,28 +123,23 @@ function ProjectDetail() {
   const sParam = params.get("s");
   const section: SectionId = isSection(sParam) ? sParam : "resumen";
   const { orgId, isAdmin } = useAuth();
+  const online = useOnline();
   const qc = useQueryClient();
   const { data: project, isLoading, error } = useQuery({
     queryKey: ["project", id],
     queryFn: () => getProject(id as string),
     enabled: !!id,
   });
-  const { data: items = [], isLoading: loadingList } = useQuery({
+  const { data: items = [], isLoading: loadingList, error: listError } = useQuery({
     queryKey: ["checklist", id],
     queryFn: () => getChecklist(project!),
-    enabled: !!project,
+    enabled: !!project && online, // sin señal no se intenta: serían 10 consultas reintentando
   });
 
-  // en móvil la fila de secciones se desplaza: la activa queda a la vista al cambiar
-  useEffect(() => {
-    document.querySelector('nav[aria-label="Secciones del proyecto"] [aria-current="page"]')?.scrollIntoView({
-      inline: "center", block: "nearest",
-    });
-  }, [section, project]);
-
+  // push (no replace): el "atrás" del celular vuelve a la sección anterior en vez de sacarte del proyecto
   const go = (s: SectionId) => {
     void qc.invalidateQueries({ queryKey: ["checklist", id] });
-    router.replace(`/proyecto/?id=${id}&s=${s}`, { scroll: false });
+    router.push(`/proyecto/?id=${id}&s=${s}`, { scroll: false });
   };
 
   const reset = useMutation({
@@ -159,8 +156,11 @@ function ProjectDetail() {
   if (isLoading) return <p>Cargando…</p>;
   if (error || !project || !orgId) {
     return (
-      <p role="alert">
-        No se pudo abrir el proyecto. {error ? errMsg(error) : ""}{" "}
+      <p role="alert" className="max-w-prose text-base">
+        No se pudo abrir el proyecto.{" "}
+        {!online
+          ? "Sin señal y sin copia en este teléfono: abrilo una vez con conexión antes de salir al campo."
+          : error ? errMsg(error) : ""}{" "}
         <Link href="/proyectos" className="underline">Volver</Link>
       </p>
     );
@@ -180,7 +180,7 @@ function ProjectDetail() {
           <ArrowLeft aria-hidden="true" className="size-4" />
           Proyectos
         </Link>
-        <h1 className="max-w-4xl font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{project.name}</h1>
+        <h1 className="max-w-4xl font-heading text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">{project.name}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
           <span className="font-medium text-foreground">{project.clients?.name}</span>
           <Badge variant="secondary">{project.doc_type}</Badge>
@@ -192,6 +192,20 @@ function ProjectDetail() {
           )}
         </div>
       </header>
+
+      {!online && (
+        <div role="status" className="grid gap-3 rounded-md border-2 border-jarilla bg-jarilla/15 p-3 text-base sm:flex sm:items-center">
+          <p className="flex min-w-0 flex-1 gap-2">
+            <CloudOff aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+            <span>Sin señal. El relevamiento funciona igual: lo que cargues queda en este teléfono y se sube solo cuando vuelva la conexión.</span>
+          </p>
+          {section !== "relevamiento" && (
+            <Button variant="jarilla" size="lg" className="w-full sm:w-auto" onClick={() => go("relevamiento")}>
+              Ir a Relevamiento
+            </Button>
+          )}
+        </div>
+      )}
 
       {!thresholdsValid(project.thresholds) && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-warn bg-warn/10 p-3 text-base">
@@ -206,16 +220,36 @@ function ProjectDetail() {
       )}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[13.5rem_minmax(0,1fr)]">
-        <nav aria-label="Secciones del proyecto" className="-mx-4 min-w-0 md:sticky md:top-24 md:mx-0 md:self-start">
-          <div className="relative flex gap-2 overflow-x-auto px-4 pb-2 md:flex-col md:gap-4 md:overflow-visible md:px-0 md:pb-0">
+        <nav aria-label="Secciones del proyecto" className="min-w-0 md:sticky md:top-24 md:self-start">
+          {/* Celular: el selector del sistema. Una fila de 19 botones desplazables no se recorre con guantes. */}
+          <label className="grid gap-1 md:hidden">
+            <span className="text-sm font-medium text-muted-foreground">Sección</span>
+            <NativeSelect value={section} onChange={(e) => { if (isSection(e.target.value)) go(e.target.value); }}>
+              {GROUPS.map((g) => {
+                const visibles = g.items.filter((i) => !i.adminOnly || isAdmin);
+                if (visibles.length === 0) return null;
+                return (
+                  <optgroup key={g.title} label={g.title}>
+                    {visibles.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.label}
+                        {status[it.id] === "ok" ? " — listo" : status[it.id] === "falta" ? " — pendiente" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </NativeSelect>
+          </label>
+
+          {/* Escritorio: lista por fases */}
+          <div className="hidden md:flex md:flex-col md:gap-4">
             {GROUPS.map((g) => {
               const visibles = g.items.filter((i) => !i.adminOnly || isAdmin);
               if (visibles.length === 0) return null;
               return (
-                <div key={g.title} className="flex shrink-0 gap-2 md:grid md:gap-1">
-                  {g.title !== "Inicio" && (
-                    <p className="hidden px-3 pt-1 text-sm font-semibold text-primary md:block">{g.title}</p>
-                  )}
+                <div key={g.title} className="grid gap-1">
+                  {g.title !== "Inicio" && <p className="px-3 pt-1 text-sm font-semibold text-primary">{g.title}</p>}
                   {visibles.map((it) => {
                     const active = it.id === section;
                     const st = status[it.id];
@@ -226,10 +260,10 @@ function ProjectDetail() {
                         onClick={() => go(it.id)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors md:min-h-9 md:w-full",
+                          "flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors",
                           active
                             ? "border-jarilla bg-basalto text-white"
-                            : "border-transparent bg-card/70 text-foreground/80 hover:bg-card hover:text-foreground md:bg-transparent",
+                            : "border-transparent text-foreground/80 hover:bg-card hover:text-foreground",
                         )}
                       >
                         {st && (
@@ -259,7 +293,7 @@ function ProjectDetail() {
               {SECTION_HELP[section] && <p className="text-base text-muted-foreground">{SECTION_HELP[section]}</p>}
             </div>
           )}
-          {section === "resumen" &&<Resumen items={items} loading={loadingList} onGo={go} />}
+          {section === "resumen" &&<Resumen items={items} loading={loadingList} error={!online ? "sin señal" : listError ? errMsg(listError) : null} onGo={go} />}
           {section === "datos" && (
             <Card>
               <CardContent className="pt-4">

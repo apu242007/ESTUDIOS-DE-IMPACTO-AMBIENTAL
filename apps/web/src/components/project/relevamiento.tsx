@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLiveQuery } from "dexie-react-hooks";
+import { Check, LocateFixed } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,21 +11,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { workKindLabel, workKinds } from "@/lib/alcance-parser";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { listCodes, listPhotoCategories } from "@/lib/data/catalogs";
 import { errMsg } from "@/lib/data/util";
 import { listWorks } from "@/lib/data/works";
+import { formatDms } from "@/lib/geo/dms";
 import { getDb, type LineRec, type WaypointRec } from "@/lib/offline/db";
 import { DIRECTIONS, compressPhoto, joinViews, splitViews } from "@/lib/offline/photos";
 import { supabaseRemote } from "@/lib/offline/remote";
 import { addPhoto, addWaypoint, createLine, deleteLine, deletePhoto, deleteWaypoint, saveLine, saveWaypoint } from "@/lib/offline/repo";
 import { syncOutbox } from "@/lib/offline/sync";
+import { useOnline } from "@/lib/offline/use-online";
 
 /** Campo de texto que guarda al salir (evita escribir en IndexedDB a cada tecla). */
 function Txt({
-  value, label, onSave, list, type = "text", className,
+  value, label, onSave, list, type = "text", inputMode, className,
 }: {
   value: string | number | null; label: string; onSave: (v: string | null) => void;
-  list?: string; type?: string; className?: string;
+  list?: string; type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"]; className?: string;
 }) {
   return (
     <label className="grid gap-1 text-sm">
@@ -33,6 +37,7 @@ function Txt({
         key={String(value ?? "")}
         className={className ?? "h-12"}
         type={type}
+        inputMode={inputMode}
         list={list}
         defaultValue={value ?? ""}
         onBlur={(e) => {
@@ -44,7 +49,7 @@ function Txt({
   );
 }
 
-function Thumb({ blob, onRemove }: { blob: Blob; onRemove: () => void }) {
+function Thumb({ blob, uploaded, onRemove }: { blob: Blob; uploaded: boolean; onRemove: () => void }) {
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     const u = URL.createObjectURL(blob);
@@ -52,29 +57,64 @@ function Thumb({ blob, onRemove }: { blob: Blob; onRemove: () => void }) {
     return () => URL.revokeObjectURL(u);
   }, [blob]);
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="Foto del waypoint" className="h-16 w-16 rounded border object-cover" onClick={onRemove} title="Tocar para quitar" />
+    // botón (no <img> con onClick): se alcanza con teclado y el lector anuncia qué hace
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={uploaded ? "Quitar foto" : "Quitar foto (todavía sin subir)"}
+      className="relative size-20 cursor-pointer overflow-hidden rounded-md border"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" className="size-full object-cover" />
+      {!uploaded && (
+        <span aria-hidden="true" className="absolute inset-x-0 bottom-0 bg-jarilla px-1 text-xs font-semibold text-basalto">
+          sin subir
+        </span>
+      )}
+    </button>
   );
 }
 
+// GeolocationPositionError: 1 permiso, 2 sin señal, 3 tiempo agotado (los mensajes del navegador vienen en inglés)
+const GEO_ERROR: Record<number, string> = {
+  1: "Sin permiso de ubicación: habilitalo para este sitio en el navegador.",
+  2: "No hay señal de ubicación. Probá al aire libre; si no, la posición sale del GPS de mano.",
+  3: "El GPS del teléfono tardó demasiado. Probá de nuevo en unos segundos.",
+};
+
 function WaypointCard({
-  wp, orgId, codes, category, onDelete,
+  wp, orgId, codes, category, isNew, onDelete,
 }: {
-  wp: WaypointRec; orgId: string; codes: { code: string; meaning: string }[]; category: string; onDelete: () => void;
+  wp: WaypointRec; orgId: string; codes: { code: string; meaning: string }[]; category: string; isNew: boolean;
+  onDelete: () => void;
 }) {
   const photos = useLiveQuery(() => getDb().photos.where("waypointId").equals(wp.id).toArray(), [wp.id]) ?? [];
   const file = useRef<HTMLInputElement>(null);
+  const card = useRef<HTMLDivElement>(null);
+  const [locating, setLocating] = useState(false);
   const views = splitViews(wp.views);
+
+  // el waypoint recién agregado queda a la vista, sin abrir el teclado
+  useEffect(() => {
+    if (isNew) card.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [isNew]);
 
   const locate = () => {
     if (!navigator.geolocation) return toast.error("Este dispositivo no tiene GPS.");
+    setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (p) =>
+      (p) => {
+        setLocating(false);
         void saveWaypoint(wp.id, {
           lat: p.coords.latitude, lon: p.coords.longitude, elevationM: p.coords.altitude, source: "telefono",
-        }),
-      (e) => toast.error(`No se pudo obtener la posición: ${e.message}`),
-      { enableHighAccuracy: true, timeout: 20000 },
+        });
+        toast.success(`Posición tomada (precisión ±${Math.round(p.coords.accuracy)} m)`);
+      },
+      (e) => {
+        setLocating(false);
+        toast.error(GEO_ERROR[e.code] ?? "No se pudo obtener la posición.");
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );
   };
 
@@ -89,11 +129,13 @@ function WaypointCard({
     }
   };
 
+  const dms = wp.lat !== null && wp.lon !== null ? formatDms(wp.lat, wp.lon) : null;
+
   return (
-    <Card>
+    <Card ref={card}>
       <CardContent className="grid gap-3 pt-4">
         <div className="grid gap-3 sm:grid-cols-[6rem_1fr_2fr]">
-          <Txt label="N° waypoint" type="number" value={wp.number} onSave={(v) => void saveWaypoint(wp.id, { number: v === null ? null : Number(v) })} />
+          <Txt label="N° waypoint" type="number" inputMode="numeric" value={wp.number} onSave={(v) => void saveWaypoint(wp.id, { number: v === null ? null : Number(v) })} />
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Sigla</span>
             <NativeSelect className="h-12" value={wp.code ?? ""} onChange={(e) => void saveWaypoint(wp.id, { code: e.target.value || null })}>
@@ -128,19 +170,21 @@ function WaypointCard({
           <input ref={file} type="file" accept="image/*" capture="environment" multiple hidden
             onChange={(e) => { void onPhotos(e.target.files); e.target.value = ""; }} />
           <Button className="h-12" onClick={() => file.current?.click()}>Sacar foto</Button>
-          <Button variant="outline" className="h-12" onClick={locate}>Tomar posición</Button>
+          <Button variant="outline" className="h-12" disabled={locating} onClick={locate}>
+            <LocateFixed aria-hidden="true" />
+            {locating ? "Buscando posición…" : dms ? "Volver a tomar posición" : "Tomar posición"}
+          </Button>
           <Button variant="outline" className="h-12" onClick={() => { if (window.confirm(`¿Quitar el waypoint ${wp.number ?? ""}?`)) onDelete(); }}>Quitar</Button>
-          {wp.lat !== null && wp.lon !== null && (
-            <Badge variant="secondary">{wp.lat.toFixed(5)}, {wp.lon.toFixed(5)}</Badge>
-          )}
         </div>
+        {dms && (
+          <p className="tnum font-mono text-sm text-muted-foreground">
+            {dms.lat} · {dms.lon}
+          </p>
+        )}
         {photos.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {photos.map((p) => (
-              <div key={p.id} className="relative">
-                <Thumb blob={p.blob} onRemove={() => { if (window.confirm("¿Quitar esta foto?")) void deletePhoto(p.id); }} />
-                {!p.uploaded && <span className="absolute -right-1 -top-1 size-3 rounded-full bg-amber-500" title="Sin subir" />}
-              </div>
+              <Thumb key={p.id} blob={p.blob} uploaded={p.uploaded} onRemove={() => { if (window.confirm("¿Quitar esta foto?")) void deletePhoto(p.id); }} />
             ))}
           </div>
         )}
@@ -157,6 +201,7 @@ function FichaEditor({ line, orgId, onBack }: { line: LineRec; orgId: string; on
   const { data: cats = [] } = useQuery({ queryKey: ["photocats", orgId], queryFn: () => listPhotoCategories(orgId) });
   const { data: works = [] } = useQuery({ queryKey: ["works", projectId], queryFn: () => listWorks(projectId) });
   const [category, setCategory] = useState("otro");
+  const [nuevo, setNuevo] = useState<string | null>(null);
 
   const uniq = (pick: (l: LineRec) => string | null) => [...new Set(prev.map(pick).filter((v): v is string => !!v))];
   const save = (patch: Parameters<typeof saveLine>[1]) => void saveLine(line.id, patch);
@@ -166,10 +211,15 @@ function FichaEditor({ line, orgId, onBack }: { line: LineRec; orgId: string; on
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" className="h-12" onClick={onBack}>← Fichas</Button>
         <h2 className="text-xl font-bold">Ficha N° {line.fichaNo ?? "—"}</h2>
-        <label className="flex items-center gap-2 text-base">
-          <input type="checkbox" className="size-6" checked={line.closed} onChange={(e) => save({ closed: e.target.checked })} />
+        <Button
+          variant={line.closed ? "default" : "outline"}
+          className="h-12"
+          aria-pressed={line.closed}
+          onClick={() => save({ closed: !line.closed })}
+        >
+          {line.closed && <Check aria-hidden="true" />}
           Ficha cerrada
-        </label>
+        </Button>
       </div>
 
       <Card>
@@ -190,7 +240,7 @@ function FichaEditor({ line, orgId, onBack }: { line: LineRec; orgId: string; on
           </label>
           <Txt label="Inicio" value={line.startLabel} onSave={(v) => save({ startLabel: v })} />
           <Txt label="Fin" value={line.endLabel} onSave={(v) => save({ endLabel: v })} />
-          <Txt label="N° de ficha" type="number" value={line.fichaNo} onSave={(v) => save({ fichaNo: v === null ? null : Number(v) })} />
+          <Txt label="N° de ficha" type="number" inputMode="numeric" value={line.fichaNo} onSave={(v) => save({ fichaNo: v === null ? null : Number(v) })} />
           <Txt label="N° de trabajo" value={line.jobNo} list="dl-job" onSave={(v) => save({ jobNo: v })} />
           <Txt label="Fecha" type="date" value={line.surveyDate} onSave={(v) => save({ surveyDate: v })} />
           <Txt label="Empresa" value={line.company} list="dl-company" onSave={(v) => save({ company: v })} />
@@ -216,13 +266,22 @@ function FichaEditor({ line, orgId, onBack }: { line: LineRec; orgId: string; on
       </label>
 
       {waypoints.map((w) => (
-        <WaypointCard key={w.id} wp={w} orgId={orgId} codes={codes} category={category} onDelete={() => void deleteWaypoint(w.id)} />
+        <WaypointCard key={w.id} wp={w} orgId={orgId} codes={codes} category={category} isNew={w.id === nuevo} onDelete={() => void deleteWaypoint(w.id)} />
       ))}
-      <Button size="lg" className="h-14 text-base" onClick={() => void addWaypoint(line.id)}>Agregar waypoint</Button>
+      {/* fijo abajo mientras se recorre la ficha: no hay que bajar hasta el final con guantes */}
+      <div className="sticky bottom-3 z-10">
+        <Button
+          size="lg"
+          className="h-14 w-full text-base shadow-lg"
+          onClick={() => void addWaypoint(line.id).then((w) => { if (w) setNuevo(w.id); })}
+        >
+          Agregar waypoint
+        </Button>
+      </div>
 
       <Button
-        variant="outline"
-        className="h-12 justify-self-start"
+        variant="destructive"
+        className="mt-6 h-12 justify-self-start"
         onClick={() => {
           if (window.confirm("¿Eliminar la ficha completa con sus waypoints y fotos?")) { void deleteLine(line.id); onBack(); }
         }}
@@ -238,27 +297,29 @@ export function Relevamiento({ orgId, projectId }: { orgId: string; projectId: s
   const pending = useLiveQuery(() => getDb().outbox.where("projectId").equals(projectId).count(), [projectId]) ?? 0;
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [online, setOnline] = useState(true);
+  const running = useRef(false);
+  const online = useOnline();
+  const { offline: sinSesion } = useAuth();
 
   const sync = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     try {
       const r = await syncOutbox(supabaseRemote, projectId);
       if (r.error) toast.error(`Sin sincronizar (${r.pending} pendientes): ${r.error}`);
       else if (r.sent > 0) toast.success(`${r.sent} cambios sincronizados`);
     } finally {
+      running.current = false;
       setBusy(false);
     }
   }, [projectId]);
 
+  // Sube solo al abrir con señal y al volver la señal (antes había que tocar "Sincronizar" al volver del campo).
+  // Sin sesión vigente se espera a que Supabase la renueve: si no, el envío fallaría por permisos.
   useEffect(() => {
-    setOnline(navigator.onLine);
-    const on = () => { setOnline(true); void sync(); };
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
-  }, [sync]);
+    if (online && !sinSesion) void sync();
+  }, [online, sinSesion, sync]);
 
   const open = lines.find((l) => l.id === openId);
   if (open) return <FichaEditor line={open} orgId={orgId} onBack={() => setOpenId(null)} />;
@@ -275,7 +336,7 @@ export function Relevamiento({ orgId, projectId }: { orgId: string; projectId: s
         <Badge variant={online ? "secondary" : "destructive"}>{online ? "Con conexión" : "Sin conexión"}</Badge>
       </div>
       <p className="text-sm text-muted-foreground">
-        Todo se guarda en este dispositivo y se sube cuando hay conexión. Lo pendiente no se pierde aunque cierres la página.
+        Todo se guarda en este dispositivo y se sube solo cuando hay conexión. Lo pendiente no se pierde aunque cierres la página.
       </p>
       {lines.length === 0 && <p className="text-sm text-muted-foreground">Sin fichas de relevamiento.</p>}
       {lines.map((l) => (

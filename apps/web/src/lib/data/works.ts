@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { workKinds, type ParsedWork } from "@/lib/alcance-parser";
-import { changed, must, ok, parseAll } from "./util";
+import { cached, isNetworkError } from "@/lib/offline/cache";
+import { changed, must, ok } from "./util";
 
 export const stages = ["construccion", "perforacion", "complementarias", "operacion", "abandono"] as const;
 export type Stage = (typeof stages)[number];
@@ -42,14 +43,19 @@ export type WorkPatch = Partial<
 const COLS =
   "id, project_id, kind, name, code, stage, sort_order, declared_length_m, declared_area_m2, diameter_in, material, description, geom_length_m, geom_area_m2";
 
+/** Con copia en el teléfono (solo se usa sin red): la ficha de campo ofrece las obras aunque no haya señal. */
 export async function listWorks(projectId: string): Promise<WorkRow[]> {
-  const res = await createClient()
-    .from("works")
-    .select(COLS)
-    .eq("project_id", projectId)
-    .order("sort_order")
-    .order("created_at");
-  return parseAll(workRowSchema, must(res));
+  return cached(`works:${projectId}`, workRowSchema, async () =>
+    must(
+      await createClient()
+        .from("works")
+        .select(COLS)
+        .eq("project_id", projectId)
+        .order("sort_order")
+        .order("created_at"),
+    ),
+    isNetworkError,
+  );
 }
 
 export async function addWorks(projectId: string, rows: ParsedWork[], startOrder: number) {

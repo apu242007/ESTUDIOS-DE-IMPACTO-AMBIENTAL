@@ -6,12 +6,20 @@ import { nextStep, progress, type CheckItem, type SectionId } from "@/lib/checkl
 import { cn } from "@/lib/utils";
 
 export function Resumen({
-  items, loading, onGo,
-}: { items: CheckItem[]; loading: boolean; onGo: (s: SectionId) => void }) {
+  items, loading, error, onGo,
+}: { items: CheckItem[]; loading: boolean; error: string | null; onGo: (s: SectionId) => void }) {
   const next = nextStep(items);
   const { done, total } = progress(items);
 
   if (loading) return <p className="text-muted-foreground">Calculando el estado del proyecto…</p>;
+  // Sin la lista no hay "siguiente paso": antes, si la consulta fallaba, se mostraba "Todo listo".
+  if (error || items.length === 0) {
+    return (
+      <p role="alert" className="max-w-prose rounded-md border border-warn bg-warn/10 p-4 text-base">
+        No se pudo calcular el estado del proyecto{error ? ` (${error})` : ""}. Podés seguir en otra sección.
+      </p>
+    );
+  }
 
   return (
     <div className="grid gap-8">

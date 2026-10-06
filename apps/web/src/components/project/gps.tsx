@@ -33,7 +33,7 @@ function Informe({ imp }: { imp: GpsImport }) {
   return (
     <ul className="grid gap-1 text-sm">
       {visibles.map((i) => (
-        <li key={i.label} className={i.tone === "warn" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}>
+        <li key={i.label} className={i.tone === "warn" ? "text-warn" : "text-muted-foreground"}>
           <strong>{i.label}:</strong> {list(i.values)}
         </li>
       ))}

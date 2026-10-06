@@ -194,7 +194,7 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
             </div>
 
             {imp.missing.length > 0 && (
-              <p className="text-sm text-amber-700 dark:text-amber-400">
+              <p className="text-sm text-warn">
                 Faltan: {imp.missing.map((m) => `.${m}`).join(", ")}
               </p>
             )}

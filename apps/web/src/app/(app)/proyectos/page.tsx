@@ -23,6 +23,8 @@ import { useAuth } from "@/lib/auth/auth-provider";
 import { listClients } from "@/lib/data/clients";
 import { duplicateProject, listProjects } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
+import { useOnline } from "@/lib/offline/use-online";
+import type { ProjectRow } from "@/lib/schemas";
 
 const STATUS_LABEL: Record<string, string> = {
   borrador: "Borrador",
@@ -31,8 +33,21 @@ const STATUS_LABEL: Record<string, string> = {
   cerrado: "Cerrado",
 };
 
+function Estado({ status }: { status: ProjectRow["status"] }) {
+  return (
+    <Badge variant="secondary" className="gap-1.5">
+      <span
+        aria-hidden="true"
+        className={`size-2 rounded-full ${status === "entregado" || status === "cerrado" ? "bg-ok" : status === "revision" ? "bg-jarilla" : "bg-muted-foreground"}`}
+      />
+      {STATUS_LABEL[status] ?? status}
+    </Badge>
+  );
+}
+
 export default function ProyectosPage() {
   const { orgId } = useAuth();
+  const online = useOnline();
   const router = useRouter();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
@@ -75,17 +90,26 @@ export default function ProyectosPage() {
             {isLoading ? "Cargando…" : `${projects.length} ${projects.length === 1 ? "proyecto" : "proyectos"}`}
           </p>
         </div>
-        <Button size="lg" className="h-11" onClick={() => setCreating(true)} disabled={clients.length === 0}>
+        <Button size="lg" className="h-11" onClick={() => setCreating(true)} disabled={clients.length === 0 || !online}>
           Nuevo proyecto
         </Button>
       </div>
-      {listError && (
+      {!online && (
+        <p role="status" className="rounded-md border-2 border-jarilla bg-jarilla/15 p-3 text-base">
+          Sin señal: se muestra la última lista guardada en este teléfono. Abrí el proyecto y seguí en Relevamiento.
+        </p>
+      )}
+      {listError && (online ? (
         <p role="alert" className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           No se pudo cargar la lista de proyectos: {errMsg(listError)}. Si hay proyectos que no aparecen, un dato guardado
           con formato inválido puede estar ocultándolos.
         </p>
-      )}
-      {clients.length === 0 && (
+      ) : (
+        <p role="alert" className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          No hay copia de la lista en este teléfono: abrí la app una vez con conexión antes de salir al campo.
+        </p>
+      ))}
+      {online && clients.length === 0 && (
         <p className="rounded-lg border bg-background p-3 text-sm">
           Para crear un proyecto primero cargá un cliente en{" "}
           <Link href="/clientes" className="font-medium underline">
@@ -103,7 +127,30 @@ export default function ProyectosPage() {
         aria-label="Buscar proyectos"
       />
 
-      <Card>
+      {/* Celular: tarjetas. La tabla de 6 columnas no entra en 360 px y dejaba "Abrir" fuera de la pantalla. */}
+      <ul className="grid gap-3 sm:hidden">
+        {isLoading && <li className="text-muted-foreground">Cargando…</li>}
+        {!isLoading && rows.length === 0 && (
+          <li className="py-6 text-center text-muted-foreground">
+            {projects.length === 0 ? "Todavía no hay proyectos." : "Ningún proyecto coincide con la búsqueda."}
+          </li>
+        )}
+        {rows.map((p) => (
+          <li key={p.id}>
+            <Link href={`/proyecto?id=${p.id}`} className="block rounded-lg bg-card p-4 ring-1 ring-border active:bg-muted">
+              <span className="block text-lg font-semibold leading-snug text-primary">{p.name}</span>
+              <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                {p.clients?.name && <span className="font-medium text-foreground">{p.clients.name}</span>}
+                {p.code && <span className="tnum font-mono">{p.code}</span>}
+                <span>{p.doc_type}</span>
+                <Estado status={p.status} />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+
+      <Card className="hidden sm:flex">
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
@@ -142,19 +189,19 @@ export default function ProyectosPage() {
                   <TableCell>{p.clients?.name ?? "—"}</TableCell>
                   <TableCell>{p.doc_type}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="gap-1.5">
-                      <span
-                        aria-hidden="true"
-                        className={`size-2 rounded-full ${p.status === "entregado" || p.status === "cerrado" ? "bg-ok" : p.status === "revision" ? "bg-jarilla" : "bg-muted-foreground"}`}
-                      />
-                      {STATUS_LABEL[p.status] ?? p.status}
-                    </Badge>
+                    <Estado status={p.status} />
                   </TableCell>
                   <TableCell className="space-x-2 text-right whitespace-nowrap">
                     <Link href={`/proyecto?id=${p.id}`} className={buttonVariants({ variant: "outline" })}>
                       Abrir
                     </Link>
-                    <Button variant="outline" disabled={dup.isPending} onClick={() => dup.mutate(p.id)}>
+                    <Button
+                      variant="outline"
+                      disabled={dup.isPending || !online}
+                      onClick={() => {
+                        if (window.confirm(`¿Duplicar “${p.name}”? Se copian los datos y las obras; el relevamiento y las fotos no.`)) dup.mutate(p.id);
+                      }}
+                    >
                       Duplicar
                     </Button>
                   </TableCell>

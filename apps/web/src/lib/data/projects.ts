@@ -9,15 +9,22 @@ import {
   type ProjectRow,
 } from "@/lib/schemas";
 import { DEFAULT_THRESHOLDS } from "@/lib/threshold";
+import { cached, isNetworkError } from "@/lib/offline/cache";
 import { changed, must, ok, parseAll } from "./util";
 
+// Lista y ficha del proyecto guardan copia en el teléfono: sin señal, en el campo, se puede abrir el proyecto
+// y seguir con el relevamiento. La copia se usa SOLO si falta la red; cualquier otro error se muestra.
 export async function listProjects(orgId: string): Promise<ProjectRow[]> {
-  const res = await createClient()
-    .from("projects")
-    .select("*, clients(name)")
-    .eq("org_id", orgId)
-    .order("created_at", { ascending: false });
-  return parseAll(projectRowSchema, must(res));
+  return cached(`projects:${orgId}`, projectRowSchema, async () =>
+    must(
+      await createClient()
+        .from("projects")
+        .select("*, clients(name)")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false }),
+    ),
+    isNetworkError,
+  );
 }
 
 export async function resetThresholds(projectId: string): Promise<void> {
@@ -30,8 +37,11 @@ export async function resetThresholds(projectId: string): Promise<void> {
 }
 
 export async function getProject(id: string): Promise<ProjectRow> {
-  const res = await createClient().from("projects").select("*, clients(name)").eq("id", id).single();
-  return projectRowSchema.parse(must(res));
+  const [row] = await cached(`project:${id}`, projectRowSchema, async () =>
+    [must(await createClient().from("projects").select("*, clients(name)").eq("id", id).single())],
+    isNetworkError,
+  );
+  return row;
 }
 
 function toRow(v: ProjectFormValues) {
