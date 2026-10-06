@@ -49,3 +49,6 @@ apps/web/playwright-report/
 *-20260929T*-001/
 PROMPT_MAESTRO*.md
 .playwright-mcp/
+
+# corridas de /arena (borradores de agentes)
+.arena/
