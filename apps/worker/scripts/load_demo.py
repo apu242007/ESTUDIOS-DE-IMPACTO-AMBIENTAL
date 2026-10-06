@@ -4,7 +4,9 @@ sube a Storage y crea las filas en 'pendiente'; el worker las procesa. Idempoten
 Uso (desde apps/worker, con .env completo):  .venv/Scripts/python.exe scripts/load_demo.py <project_id>
 """
 import io
+import re
 import sys
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -26,6 +28,12 @@ CATEGORIAS = {
     "T1": "transecta_1",
     "T2": "transecta_2",
 }
+def storage_name(name: str) -> str:
+    """Igual que storageName de la web: Storage rechaza tildes y ñ en la clave."""
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    return re.sub(r"[^\w .()-]", "_", s)
+
+
 SIDECARS = ("shp", "shx", "dbf", "prj", "cpg", "qix", "qmd")
 
 
@@ -51,7 +59,7 @@ def main(project_id: str) -> None:
         for ext in SIDECARS:
             f = shp.with_suffix(f".{ext}")
             if f.exists():
-                path = f"{base}/layers/{iid}/{f.name}"
+                path = f"{base}/layers/{iid}/{storage_name(f.name)}"
                 bucket.upload(path, f.read_bytes())
                 files.append({"path": path, "ext": ext, "size": f.stat().st_size})
         missing = [x for x in ("shx", "dbf", "prj") if not shp.with_suffix(f".{x}").exists()]
@@ -61,7 +69,7 @@ def main(project_id: str) -> None:
 
     if not sb.table("gps_imports").select("id").eq("project_id", project_id).execute().data:
         for gdb in (FIX / "gps").glob("*.gdb"):
-            path = f"{base}/gps/{uuid.uuid4()}/{gdb.name}"
+            path = f"{base}/gps/{uuid.uuid4()}/{storage_name(gdb.name)}"
             bucket.upload(path, gdb.read_bytes())
             sb.table("gps_imports").insert({"project_id": project_id, "file_path": path, "file_kind": "gdb",
                                             "status": "pendiente"}).execute()

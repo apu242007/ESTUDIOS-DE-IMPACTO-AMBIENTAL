@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -153,7 +154,14 @@ function ProjectDetail() {
   });
 
   if (!id) return <p>Falta el identificador del proyecto.</p>;
-  if (isLoading) return <p>Cargando…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Cargando proyecto" className="grid gap-3">
+        <Skeleton className="h-9 w-2/3" />
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
+      </div>
+    );
   if (error || !project || !orgId) {
     return (
       <p role="alert" className="max-w-prose text-base">

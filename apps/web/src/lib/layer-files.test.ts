@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { groupLayerFiles } from "./layer-files";
+import { groupLayerFiles, storageName } from "./layer-files";
+
+describe("storageName", () => {
+  it("quita tildes y ñ para que Storage acepte la clave", () => {
+    expect(storageName("Acueducto flexible temporal de agua de producción.shp")).toBe("Acueducto flexible temporal de agua de produccion.shp");
+    expect(storageName("Estación de rebombeo (año 2026)#1.dbf")).toBe("Estacion de rebombeo (ano 2026)_1.dbf");
+  });
+});
 
 const f = (name: string) => new File(["x"], name);
 

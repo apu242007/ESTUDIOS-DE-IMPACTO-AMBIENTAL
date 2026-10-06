@@ -15,6 +15,10 @@ export type LayerGroup = {
   missing: string[];
 };
 
+/** Storage rechaza claves con tildes o ñ ("Invalid key"): sin diacríticos y el resto de lo raro a "_". */
+export const storageName = (name: string) =>
+  name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w .()-]/g, "_");
+
 const extOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
 const stemOf = (name: string) => name.slice(0, name.lastIndexOf(".")).toLowerCase();
 

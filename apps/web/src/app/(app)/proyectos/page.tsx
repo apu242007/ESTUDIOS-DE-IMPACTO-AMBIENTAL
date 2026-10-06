@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -129,7 +130,7 @@ export default function ProyectosPage() {
 
       {/* Celular: tarjetas. La tabla de 6 columnas no entra en 360 px y dejaba "Abrir" fuera de la pantalla. */}
       <ul aria-label="Proyectos" className="grid gap-3 sm:hidden">
-        {isLoading && <li className="text-muted-foreground">Cargando…</li>}
+        {isLoading && [0, 1, 2].map((i) => <li key={i}><Skeleton className="h-24" /></li>)}
         {!isLoading && rows.length === 0 && (
           <li className="py-6 text-center text-muted-foreground">
             {projects.length === 0 ? "Todavía no hay proyectos." : "Ningún proyecto coincide con la búsqueda."}
@@ -165,9 +166,11 @@ export default function ProyectosPage() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={6}>Cargando…</TableCell>
-                </TableRow>
+                [0, 1, 2].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={6}><Skeleton className="h-6" /></TableCell>
+                  </TableRow>
+                ))
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>

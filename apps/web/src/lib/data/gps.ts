@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
+import { storageName } from "@/lib/layer-files";
 import { changed, must, parseAll } from "./util";
 
 const BUCKET = "project-files";
@@ -57,7 +58,7 @@ export async function uploadGps(orgId: string, projectId: string, file: File) {
   const kind = gpsKindOf(file.name);
   if (!kind) throw new Error("Solo se aceptan archivos .gdb (Garmin) o .gpx.");
   const sb = createClient();
-  const path = `${orgId}/${projectId}/gps/${crypto.randomUUID()}/${file.name}`;
+  const path = `${orgId}/${projectId}/gps/${crypto.randomUUID()}/${storageName(file.name)}`;
   const up = await sb.storage.from(BUCKET).upload(path, file, { upsert: false });
   if (up.error) throw new Error(`No se pudo subir ${file.name}: ${up.error.message}`);
   const ins = await sb.from("gps_imports").insert({ project_id: projectId, file_path: path, file_kind: kind, status: "pendiente" });

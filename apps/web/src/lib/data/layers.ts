@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
-import { layerFormats, type LayerGroup } from "@/lib/layer-files";
+import { layerFormats, storageName, type LayerGroup } from "@/lib/layer-files";
 import { changed, must, parseAll } from "./util";
 
 const BUCKET = "project-files";
@@ -51,7 +51,7 @@ export async function uploadLayer(orgId: string, projectId: string, group: Layer
   const importId = crypto.randomUUID();
   const files: { path: string; ext: string; size: number }[] = [];
   for (const f of group.files) {
-    const path = `${orgId}/${projectId}/layers/${importId}/${f.name}`;
+    const path = `${orgId}/${projectId}/layers/${importId}/${storageName(f.name)}`;
     const up = await sb.storage.from(BUCKET).upload(path, f, { upsert: false });
     if (up.error) {
       await sb.storage.from(BUCKET).remove(files.map((x) => x.path));
