@@ -137,7 +137,21 @@ def poll_once(client: Any) -> bool:
     return False
 
 
+JOB_TABLES = ("layer_imports", "gps_imports", "document_builds", "figure_builds")
+
+
+def requeue_orphans(client: Any) -> None:
+    """Un trabajo en 'procesando' al arrancar quedó huérfano (el worker se cerró a mitad): vuelve a la cola.
+    ponytail: supone un solo worker (A.3); con varios, reclamar con marca de tiempo y vencimiento."""
+    for table in JOB_TABLES:
+        client.table(table).update({"status": "pendiente"}).eq("status", "procesando").execute()
+
+
 def poll_forever(client: Any, poll_seconds: float, stop: threading.Event) -> None:
+    try:
+        requeue_orphans(client)
+    except Exception:
+        log.exception("no se pudieron reencolar trabajos huérfanos")
     while not stop.is_set():
         try:
             if poll_once(client):
