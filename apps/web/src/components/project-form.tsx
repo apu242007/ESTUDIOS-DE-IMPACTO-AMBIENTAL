@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Field } from "@/components/field";
 import { SelectAdd } from "@/components/select-add";
+import { ClientLogoButton } from "@/components/client-logo-button";
 import { listClients, saveClient } from "@/lib/data/clients";
 import { listProjects, saveProject } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
@@ -107,6 +108,10 @@ export function ProjectForm({
               </option>
             ))}
           </SelectAdd>
+          {(() => {
+            const c = clients.find((x) => x.id === watch("client_id"));
+            return c ? <ClientLogoButton orgId={orgId} client={c} /> : null;
+          })()}
         </Field>
         <Field label="Tipo de documento *" error={errors.doc_type?.message}>
           <NativeSelect {...register("doc_type")}>
