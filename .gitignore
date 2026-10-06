@@ -52,3 +52,4 @@ PROMPT_MAESTRO*.md
 
 # corridas de /arena (borradores de agentes)
 .arena/
+apps/worker/worker.log
