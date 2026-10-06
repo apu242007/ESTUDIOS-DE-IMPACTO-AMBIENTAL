@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { ClientForm } from "@/components/client-form";
 import { useAuth } from "@/lib/auth/auth-provider";
-import { deleteClient, listClients, signedLogoUrl } from "@/lib/data/clients";
+import { deleteClient, listClients, signedLogoUrl, uploadClientLogo } from "@/lib/data/clients";
 import { errMsg } from "@/lib/data/util";
 import type { ClientRow } from "@/lib/schemas";
 
@@ -32,9 +32,41 @@ function Logo({ path }: { path: string | null }) {
     enabled: !!path,
     staleTime: 240_000,
   });
-  if (!data) return <div className="size-10 rounded bg-muted" aria-hidden />;
+  if (!data) return <div className="size-8 rounded bg-muted" aria-hidden />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={data} alt="" className="size-10 rounded object-contain" />;
+  return <img src={data} alt="" className="size-8 rounded object-contain" />;
+}
+
+/** Botón directo en la fila: elegir la imagen la sube al toque, sin abrir el formulario. */
+function LogoButton({ orgId, client }: { orgId: string; client: ClientRow }) {
+  const qc = useQueryClient();
+  const up = useMutation({
+    mutationFn: (f: File) => uploadClientLogo(orgId, client.id, f, client.logo_path),
+    onSuccess: () => {
+      toast.success(`Logo de ${client.name} guardado`);
+      void qc.invalidateQueries({ queryKey: ["clients", orgId] });
+      void qc.invalidateQueries({ queryKey: ["logo"] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium ring-1 ring-input has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-ring">
+      <Logo path={client.logo_path} />
+      {up.isPending ? "Subiendo…" : client.logo_path ? "Cambiar logo" : "Subir logo"}
+      <input
+        type="file"
+        accept="image/png,image/jpeg"
+        className="sr-only"
+        aria-label={`Logo de ${client.name}`}
+        disabled={up.isPending}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) up.mutate(f);
+          e.target.value = "";
+        }}
+      />
+    </label>
+  );
 }
 
 export default function ClientesPage() {
@@ -92,7 +124,7 @@ export default function ClientesPage() {
               {clients.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <Logo path={c.logo_path} />
+                    {orgId && <LogoButton orgId={orgId} client={c} />}
                   </TableCell>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.cuit ?? "—"}</TableCell>

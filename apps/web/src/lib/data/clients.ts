@@ -57,22 +57,26 @@ export async function saveClient(
       .single();
     clientId = clientRowSchema.pick({ id: true }).parse(must(res)).id;
   }
-  if (logo && clientId) {
-    const ext = logo.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!LOGO_EXT.includes(ext as (typeof LOGO_EXT)[number])) {
-      throw new Error("El logo debe ser PNG o JPG");
-    }
-    const path = `${orgId}/logos/${crypto.randomUUID()}.${ext}`;
-    const up = await supabase.storage.from("project-files").upload(path, logo, { upsert: false });
-    if (up.error) throw new Error(up.error.message);
-    const upd = await supabase.from("clients").update({ logo_path: path }).eq("id", clientId).select("id");
-    if (upd.error || !upd.data || upd.data.length === 0) {
-      await supabase.storage.from("project-files").remove([path]); // compensación: sin huérfanos
-      throw new Error(upd.error?.message ?? "No se pudo guardar el logo");
-    }
-    if (oldLogo) await supabase.storage.from("project-files").remove([oldLogo]);
-  }
+  if (logo && clientId) await uploadClientLogo(orgId, clientId, logo, oldLogo);
   return clientId as string;
+}
+
+/** Sube el logo y recién después apunta el cliente al archivo nuevo; borra el anterior. */
+export async function uploadClientLogo(orgId: string, clientId: string, logo: File, oldLogo: string | null): Promise<void> {
+  const ext = logo.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!LOGO_EXT.includes(ext as (typeof LOGO_EXT)[number])) {
+    throw new Error("El logo debe ser PNG o JPG");
+  }
+  const supabase = createClient();
+  const path = `${orgId}/logos/${crypto.randomUUID()}.${ext}`;
+  const up = await supabase.storage.from("project-files").upload(path, logo, { upsert: false });
+  if (up.error) throw new Error(up.error.message);
+  const upd = await supabase.from("clients").update({ logo_path: path }).eq("id", clientId).select("id");
+  if (upd.error || !upd.data || upd.data.length === 0) {
+    await supabase.storage.from("project-files").remove([path]); // compensación: sin huérfanos
+    throw new Error(upd.error?.message ?? "No se pudo guardar el logo");
+  }
+  if (oldLogo) await supabase.storage.from("project-files").remove([oldLogo]);
 }
 
 export async function deleteClient(id: string): Promise<void> {
