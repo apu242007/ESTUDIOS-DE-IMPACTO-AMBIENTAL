@@ -60,8 +60,9 @@ export function PhaseNav({ section, status, isAdmin, onGo }: Props) {
                   active ? "border-jarilla" : "border-transparent hover:border-border",
                 )}
               >
-                <span className={cn("flex items-baseline justify-between gap-2 whitespace-nowrap font-semibold", active ? "text-foreground" : "text-muted-foreground")}>
-                  <span className="truncate text-xs sm:text-base">{g.title}</span>
+                {/* en 360 px seis nombres no entran: solo las barras (la fase se lee en la barra inferior) */}
+                <span className={cn("flex min-w-0 items-baseline justify-between gap-2 whitespace-nowrap font-semibold", active ? "text-foreground" : "text-muted-foreground")}>
+                  <span className="sr-only sm:not-sr-only sm:truncate sm:text-base">{g.title}</span>
                   {total > 0 && <span className="tnum hidden font-mono text-xs font-medium md:inline">{ok}/{total}</span>}
                 </span>
                 <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-border">
