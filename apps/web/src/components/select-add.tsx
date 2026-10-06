@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,11 @@ export function SelectAdd({
 }) {
   const [vals, setVals] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
+  // `busy` llega tarde: dos Enter seguidos (o Enter + clic) corren antes del re-render y duplicaban el alta.
+  const inFlight = useRef(false);
   const save = async () => {
-    if (!vals || vals.some((v) => !v.trim())) return;
+    if (inFlight.current || !vals || vals.some((v) => !v.trim())) return;
+    inFlight.current = true;
     setBusy(true);
     try {
       onValue(await onAdd(vals.map((v) => v.trim())));
@@ -33,6 +36,7 @@ export function SelectAdd({
     } catch (e) {
       toast.error(catalogErrorMessage(e));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
