@@ -45,11 +45,33 @@ export function renderTemplate(tpl: string, vars: Record<string, string | number
 
 export const DEFAULT_FIGURA = "Punto de interés"; // A.8: el informe usa "Punto de interés" cuando no hay sigla
 
-/** Descripción por defecto cuando no hay plantilla en el catálogo: solo junta lo que se cargó, no agrega contenido. */
-function descripcionPorDefecto(figura: string, w: WaypointInput): string {
-  const partes = [w.description?.trim() ? `${figura}: ${w.description.trim()}` : figura];
-  if (w.views) partes.push(`(vistas: ${w.views})`);
-  return partes.join(" ");
+// Misma regla que el informe (apps/worker/app/jobs/docs.py): lo que se revisa en pantalla y en el CSV es lo que recibe el cliente.
+// Un quiebre (Q) es un cambio de rumbo, no una interferencia; sin sigla solo entran los puntos de interés (inicio/fin…).
+const NO_INTERFERENCIA = new Set(["Q"]);
+const PUNTO_DE_INTERES = /^\s*(inicio|fin|finalizaci[oó]n|acometida|empalme)(?![\p{L}\p{N}_])/iu;
+
+export function esInterferencia(code: string | null, obs: string | null): boolean {
+  const c = (code ?? "").trim();
+  return !NO_INTERFERENCIA.has(c) && (c !== "" || PUNTO_DE_INTERES.test(obs ?? ""));
+}
+
+/** Siglas de 2+ letras a texto ("CR con CP" → "Cruce con camino principal"); las de una (O, D…) son ambiguas con rumbos. */
+export function expandCodes(text: string, codes: Map<string, string>): string {
+  return text.replace(/\b[A-Z][A-Za-z]{1,2}\b/g, (m, offset: number) => {
+    const meaning = codes.get(m);
+    if (!meaning) return m;
+    return offset === 0 ? meaning : meaning.charAt(0).toLowerCase() + meaning.slice(1);
+  });
+}
+
+/** Descripción por defecto cuando no hay plantilla en el catálogo: solo junta lo que se cargó, no agrega contenido.
+ * Las vistas son de las fotos (anexo fotográfico), no de la interferencia. */
+function descripcionPorDefecto(figura: string, w: WaypointInput, codes: Map<string, string>): string {
+  const code = (w.code ?? "").trim();
+  const obs = (w.description ?? "").trim();
+  const texto = expandCodes(obs, codes);
+  if ((code && obs.startsWith(code)) || (!code && texto)) return texto;
+  return texto ? `${figura}: ${texto}` : figura;
 }
 
 /**
@@ -66,6 +88,7 @@ export function buildInterferencias(
   let sinPosicion = 0;
 
   for (const w of waypoints) {
+    if (!esInterferencia(w.code, w.description)) continue;
     if (w.lat === null || w.lon === null) {
       sinPosicion++;
       continue;
@@ -87,7 +110,7 @@ export function buildInterferencias(
         ? renderTemplate(template, {
             figura, sigla: w.code, numero: w.number, vistas: w.views, observaciones: w.description,
           })
-        : descripcionPorDefecto(figura, w),
+        : descripcionPorDefecto(figura, w, codes),
     });
   }
 

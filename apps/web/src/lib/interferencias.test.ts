@@ -21,7 +21,8 @@ describe("buildInterferencias", () => {
   });
 
   it("sin sigla usa 'Punto de interés'; sin posición no entra pero se cuenta", () => {
-    const r = buildInterferencias([wp({ id: "a" }), wp({ id: "b", lat: null, lon: null })], codes, lines);
+    const inicio = { description: "Inicio de línea de captación 8\"" };
+    const r = buildInterferencias([wp({ id: "a", ...inicio }), wp({ id: "b", ...inicio, lat: null, lon: null })], codes, lines);
     expect(r.rows).toHaveLength(1);
     expect(r.rows[0].figura).toBe("Punto de interés");
     expect(r.sinPosicion).toBe(1);
@@ -29,16 +30,33 @@ describe("buildInterferencias", () => {
 
   it("descripción por defecto: solo junta lo cargado (no inventa)", () => {
     const a = buildInterferencias([wp({ code: "CC", description: "seco", views: "O-NO" })], codes, lines).rows[0];
-    expect(a.descripcion).toBe("Cauce: seco (vistas: O-NO)");
+    expect(a.descripcion).toBe("Cauce: seco"); // las vistas son de las fotos (anexo), no de la interferencia
     const b = buildInterferencias([wp({ code: "CC" })], codes, lines).rows[0];
     expect(b.descripcion).toBe("Cauce");
   });
 
   it("ordena por ficha y luego por N° de waypoint", () => {
     const r = buildInterferencias(
-      [wp({ id: "c", lineId: "l2", number: 1 }), wp({ id: "b", number: 9 }), wp({ id: "a", number: 2 })], codes, lines,
+      [wp({ id: "c", lineId: "l2", number: 1, code: "CR" }), wp({ id: "b", number: 9, code: "CR" }), wp({ id: "a", number: 2, code: "CR" })],
+      codes, lines,
     );
     expect(r.rows.map((x) => x.id)).toEqual(["a", "b", "c"]);
+  });
+
+  // Misma regla que el informe (apps/worker/app/jobs/docs.py, build_interferencias): lo que se revisa en pantalla
+  // y en el CSV es lo que recibe el cliente.
+  it("formato cliente: sin quiebres ni notas de campo, siglas expandidas", () => {
+    const c = new Map([["CR", "Cruce"], ["CP", "Camino principal"], ["CaC", "Caño camisa"], ["Q", "Quiebre"], ["O", "Oleoducto"]]);
+    const r = buildInterferencias([
+      wp({ id: "1", number: 9, code: "CR", description: "CR con CP - CaC", views: "O-SO" }),
+      wp({ id: "2", number: 10, code: "Q", description: "Q al O" }),
+      wp({ id: "3", number: 4, description: "Inicio en PAD 60 BPO" }),
+      wp({ id: "4", number: 50, description: "VNO" }),
+      wp({ id: "5", number: 51 }),
+    ], c, lines);
+    expect(r.rows.map((x) => x.id)).toEqual(["3", "1"]);
+    expect(r.rows[1].descripcion).toBe("Cruce con camino principal - caño camisa");
+    expect(r.rows[0]).toMatchObject({ figura: "Punto de interés", descripcion: "Inicio en PAD 60 BPO" });
   });
 
   it("usa la plantilla del catálogo cuando existe", () => {

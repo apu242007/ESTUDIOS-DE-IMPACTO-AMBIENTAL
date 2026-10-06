@@ -70,7 +70,7 @@ def test_dms_paridad_con_la_web() -> None:
 def test_interferencias_ordena_y_descarta_sin_posicion() -> None:
     wps = [
         {"id": "b", "line_id": "l2", "number": 1, "code": "CR", "description": "con ductos", "views": "O-SO", "lat": LAT, "lon": LON, "elevation_m": 138.4},
-        {"id": "a", "line_id": "l1", "number": 5, "code": None, "description": None, "views": None, "lat": LAT, "lon": LON, "elevation_m": None},
+        {"id": "a", "line_id": "l1", "number": 5, "code": None, "description": "Inicio de línea", "views": None, "lat": LAT, "lon": LON, "elevation_m": None},
         {"id": "c", "line_id": "l1", "number": 6, "code": "CR", "description": None, "views": None, "lat": None, "lon": None, "elevation_m": None},
     ]
     rows, sin = build_interferencias(wps, {"CR": "Cruce"}, {"l1": 1, "l2": 2})
@@ -87,6 +87,7 @@ def test_interferencias_formato_cliente_filtra_quiebres_y_expande_siglas() -> No
         {**base, "id": "2", "number": 10, "code": "Q", "description": "Q al O"},             # quiebre: fuera
         {**base, "id": "3", "number": 4, "code": None, "description": "Inicio en PAD 60 BPO"},  # punto de interés
         {**base, "id": "4", "number": 50, "code": None, "description": "VNO"},               # nota de campo: fuera
+        {**base, "id": "5", "number": 51, "code": None, "description": None},                # renglón vacío: fuera
     ]
     rows, _ = build_interferencias(wps, codes, {"l1": (1, "Acueductos flexibles")})
     assert [r["_num"] for r in rows] == [4, 9]

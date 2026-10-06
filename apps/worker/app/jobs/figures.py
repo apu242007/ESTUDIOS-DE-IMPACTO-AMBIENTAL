@@ -152,8 +152,10 @@ def render_figure(kind: str, data: dict[str, Any], params: dict[str, Any] | None
         geom = _geometry(row.get("geojson"), transformer)
         if geom is not None:
             well_items.append((row, geom))
+    from app.jobs.docs import es_interferencia  # la figura muestra lo mismo que la tabla del informe
     waypoint_items = [(row, point) for row in data.get("waypoints", [])
-                      if (point := _point(row.get("lon"), row.get("lat"), transformer)) is not None]
+                      if es_interferencia(row.get("code"), row.get("description"))
+                      and (point := _point(row.get("lon"), row.get("lat"), transformer)) is not None]
 
     display_geometries = [geom for _, geom in layer_items + well_items]
     display_points = [point for _, point in waypoint_items] if kind == "interferencias" else []

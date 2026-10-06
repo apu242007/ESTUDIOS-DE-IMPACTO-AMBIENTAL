@@ -70,6 +70,13 @@ NO_INTERFERENCIA = {"Q"}
 PUNTO_DE_INTERES = re.compile(r"^\s*(inicio|fin|finalizaci[oó]n|acometida|empalme)\b", re.I)
 
 
+def es_interferencia(code: str | None, obs: str | None) -> bool:
+    """Va a la tabla del cliente (y a la figura de interferencias): con sigla que no sea quiebre, o sin sigla solo si es
+    un punto de interés (inicio/fin…). Lo demás son notas de campo. Misma regla que la web (src/lib/interferencias.ts)."""
+    code = (code or "").strip()
+    return code not in NO_INTERFERENCIA and (bool(code) or bool(PUNTO_DE_INTERES.match(obs or "")))
+
+
 def expand_codes(text: str, codes: dict[str, str]) -> str:
     """Siglas de la planilla a texto: "CR con CP - CaC" → "Cruce con camino principal - caño camisa".
     Solo siglas de 2+ letras: las de una (O, D, C…) son ambiguas con rumbos y palabras."""
@@ -92,7 +99,7 @@ def build_interferencias(waypoints: list[dict[str, Any]], codes: dict[str, str],
     for w in waypoints:
         code = (w.get("code") or "").strip()
         obs = (w.get("description") or "").strip()
-        if code in NO_INTERFERENCIA or (not code and obs and not PUNTO_DE_INTERES.match(obs)):
+        if not es_interferencia(code, obs):
             continue
         lat, lon = w.get("lat"), w.get("lon")
         if lat is None or lon is None:
