@@ -22,6 +22,7 @@ export function ClientForm({
 }) {
   const [busy, setBusy] = useState(false);
   const [logo, setLogo] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -53,6 +54,36 @@ export function ClientForm({
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4" noValidate>
+      <fieldset className="grid gap-3 rounded-md p-3 ring-1 ring-border">
+        <legend className="px-1 font-medium">Logo del cliente (va en la carátula del informe)</legend>
+        <div className="flex items-center gap-3">
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="Logo elegido" className="size-16 rounded bg-white object-contain ring-1 ring-border" />
+          ) : (
+            <div className="grid size-16 place-items-center rounded bg-muted text-xs text-muted-foreground" aria-hidden>
+              {client?.logo_path ? "Actual" : "Sin logo"}
+            </div>
+          )}
+          <label className="inline-flex h-12 flex-1 cursor-pointer items-center justify-center rounded-md px-4 text-base font-medium ring-1 ring-input has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-ring sm:flex-none">
+            {logo ? "Cambiar imagen" : client?.logo_path ? "Reemplazar logo" : "Elegir logo (PNG o JPG)"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setLogo(f);
+                setPreview((old) => {
+                  if (old) URL.revokeObjectURL(old);
+                  return f ? URL.createObjectURL(f) : null;
+                });
+              }}
+            />
+          </label>
+        </div>
+        {logo && <p className="text-sm text-muted-foreground">Se guarda al tocar “Guardar”.</p>}
+      </fieldset>
       <Field label="Nombre *" error={errors.name?.message}>
         <Input className="h-11" {...register("name")} />
       </Field>
@@ -76,14 +107,6 @@ export function ClientForm({
           <Input className="h-11" type="tel" {...register("contact_telefono")} />
         </Field>
       </fieldset>
-      <Field label="Logo (PNG o JPG, para la carátula)">
-        <Input
-          className="h-11 pt-2"
-          type="file"
-          accept="image/png,image/jpeg"
-          onChange={(e) => setLogo(e.target.files?.[0] ?? null)}
-        />
-      </Field>
       <Button type="submit" size="lg" className="h-12 text-base" disabled={busy}>
         {busy ? "Guardando…" : "Guardar"}
       </Button>
