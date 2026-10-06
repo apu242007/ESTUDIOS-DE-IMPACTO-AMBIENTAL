@@ -4,11 +4,13 @@ sube a Storage y crea las filas en 'pendiente'; el worker las procesa. Idempoten
 Uso (desde apps/worker, con .env completo):  .venv/Scripts/python.exe scripts/load_demo.py <project_id>
 """
 import io
+import json
 import re
 import sys
 import unicodedata
 import uuid
 from pathlib import Path
+from typing import Any
 
 from PIL import Image, ImageOps
 from supabase import create_client
@@ -42,6 +44,58 @@ def env() -> dict[str, str]:
     return dict(l.split("=", 1) for l in lines if "=" in l and not l.startswith("#"))
 
 
+def _date(s: str | None) -> str | None:
+    m = re.match(r"(\d{1,2})\D(\d{1,2})", s or "")
+    return f"2026-{int(m[2]):02d}-{int(m[1]):02d}" if m else None  # las planillas no traen año
+
+
+def load_fichas(sb: Any, org: str, project_id: str) -> None:
+    """Fichas transcriptas de las planillas de papel (fixtures/relevamiento.json). Páginas de una misma ficha = una línea."""
+    src = FIX / "relevamiento.json"
+    if not src.exists() or sb.table("survey_lines").select("id").eq("project_id", project_id).limit(1).execute().data:
+        return
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for f in json.loads(src.read_text(encoding="utf-8"))["fichas"]:
+        if f["image"] == "DSCN7716.JPG":  # foto anterior de la misma hoja que DSCN7952
+            continue
+        form = "loc" if (f.get("tipo") or "").startswith("Locaciones") else "lin"
+        groups.setdefault((form, f["ficha_no"]), []).append(f)
+    seen: set[int] = set()
+    for (form, ficha_no), pages in groups.items():
+        h = pages[0]
+        lid = str(uuid.uuid4())
+        headings = [r["description"] for pg in pages for r in pg["rows"] if r.get("heading")]
+        doubtful = [r["description"] for pg in pages for r in pg["rows"] if r.get("doubtful")]
+        notes = "Transcripta de planilla en papel (" + ", ".join(pg["image"] for pg in pages) + ")."
+        if headings:
+            notes += " Tramos: " + "; ".join(headings) + "."
+        if doubtful:
+            notes += " Revisar lectura dudosa: " + "; ".join(doubtful) + "."
+        sb.table("survey_lines").insert({
+            "id": lid, "org_id": org, "project_id": project_id, "ficha_no": ficha_no,
+            "kind": (h.get("tipo") or "").replace(" (pág. 2)", "") or None, "start_label": h.get("inicio"), "end_label": h.get("fin"),
+            "survey_date": _date(h.get("fecha")), "company": h.get("empresa"), "notes": notes}).execute()
+        order = 0
+        for pg in pages:
+            for r in pg["rows"]:
+                if r.get("heading"):
+                    continue
+                nums = r.get("waypoints") or [r.get("waypoint")]
+                views = (r.get("views") or "").split("|")
+                for i, n in enumerate(nums):
+                    if n in seen:  # número repetido en la planilla: no se adivina, queda sin número
+                        n = None
+                    if n is not None:
+                        seen.add(n)
+                    desc = r["description"] + (" (lectura dudosa)" if r.get("doubtful") else "")
+                    sb.table("waypoints").insert({
+                        "id": str(uuid.uuid4()), "org_id": org, "project_id": project_id, "line_id": lid, "number": n,
+                        "code": r.get("code"), "description": desc, "views": (views[i] if i < len(views) else views[0]) or None,
+                        "source": "manual", "sort_order": order}).execute()
+                    order += 1
+        print("ficha", form, ficha_no, order, "waypoints")
+
+
 def main(project_id: str) -> None:
     e = env()
     sb = create_client(e["SUPABASE_URL"], e["SUPABASE_SERVICE_ROLE_KEY"])
@@ -67,11 +121,15 @@ def main(project_id: str) -> None:
                                           "files": files, "missing": missing, "status": "pendiente"}).execute()
         print("capa", name)
 
-    if not sb.table("gps_imports").select("id").eq("project_id", project_id).execute().data:
-        for gdb in (FIX / "gps").glob("*.gdb"):
+    load_fichas(sb, org, project_id)
+
+    # sin GPSBabel no se lee el .gdb: se usa el GPX exportado de los mismos waypoints si existe
+    gps_files = sorted((FIX / "gps").glob("*.gpx")) or sorted((FIX / "gps").glob("*.gdb"))
+    if not sb.table("gps_imports").select("id").eq("project_id", project_id).neq("status", "error").execute().data:
+        for gdb in gps_files[:1]:
             path = f"{base}/gps/{uuid.uuid4()}/{storage_name(gdb.name)}"
             bucket.upload(path, gdb.read_bytes())
-            sb.table("gps_imports").insert({"project_id": project_id, "file_path": path, "file_kind": "gdb",
+            sb.table("gps_imports").insert({"project_id": project_id, "file_path": path, "file_kind": gdb.suffix[1:],
                                             "status": "pendiente"}).execute()
             print("gps", gdb.name)
 
