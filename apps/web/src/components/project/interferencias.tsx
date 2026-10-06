@@ -59,8 +59,18 @@ export function Interferencias({ orgId, projectId }: { orgId: string; projectId:
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[56rem] text-base">
+          <table className="table-cards w-full text-base md:min-w-[52rem] md:table-fixed">
             <caption className="sr-only">Tabla de interferencias</caption>
+            {/* columnas fijas: las cifras no se cortan y la descripción usa el resto, en renglones */}
+            <colgroup>
+              <col className="w-36" />
+              <col className="w-40" />
+              <col className="w-40" />
+              <col className="w-28" />
+              <col className="w-28" />
+              <col className="w-20" />
+              <col />
+            </colgroup>
             <thead>
               <tr className="border-b bg-muted text-left">
                 {["Figura", "Latitud", "Longitud", "X", "Y", "Cota", "Descripción"].map((h) => (
@@ -79,15 +89,15 @@ export function Interferencias({ orgId, projectId }: { orgId: string; projectId:
                   </td>
                 </tr>
               )}
-              {data.rows.map((r) => (
-                <tr key={r.id} className="border-b align-top last:border-0">
-                  <td className="px-3 py-3 font-medium">{r.figura}</td>
-                  <td className="px-3 py-3 font-mono whitespace-nowrap">{r.lat}</td>
-                  <td className="px-3 py-3 font-mono whitespace-nowrap">{r.lon}</td>
-                  <td className="px-3 py-3 font-mono">{r.x}</td>
-                  <td className="px-3 py-3 font-mono">{r.y}</td>
-                  <td className="px-3 py-3 font-mono">{r.cota ?? "—"}</td>
-                  <td className="px-3 py-3">{r.descripcion}</td>
+              {data.rows.map((r, i) => (
+                <tr key={r.id} className="enter border-b align-top last:border-0" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
+                  <td data-label="Figura" className="px-3 py-3 font-medium">{r.figura}</td>
+                  <td data-label="Latitud" className="px-3 py-3 font-mono whitespace-nowrap">{r.lat}</td>
+                  <td data-label="Longitud" className="px-3 py-3 font-mono whitespace-nowrap">{r.lon}</td>
+                  <td data-label="X (norte)" className="px-3 py-3 font-mono">{r.x}</td>
+                  <td data-label="Y (este)" className="px-3 py-3 font-mono">{r.y}</td>
+                  <td data-label="Cota" className="px-3 py-3 font-mono">{r.cota ?? "—"}</td>
+                  <td data-label="Descripción" data-wide className="px-3 py-3 [overflow-wrap:anywhere]">{r.descripcion}</td>
                 </tr>
               ))}
             </tbody>

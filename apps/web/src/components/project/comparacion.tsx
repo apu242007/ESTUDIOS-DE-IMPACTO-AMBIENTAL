@@ -27,7 +27,7 @@ export function Comparacion({ projectId, thresholds }: { projectId: string; thre
       </p>
       <Card>
         <CardContent className="overflow-x-auto p-2">
-          <table className="w-full min-w-[52rem] text-sm">
+          <table className="table-cards w-full text-base md:min-w-[48rem]">
             <thead>
               <tr className="text-left text-muted-foreground">
                 {["Obra", "Tipo", "Declarado", "Calculado", "Diferencia", "%", "Estado"].map((h) => (
@@ -42,7 +42,7 @@ export function Comparacion({ projectId, thresholds }: { projectId: string; thre
               {!isLoading && rows.length === 0 && (
                 <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Sin obras en el alcance.</td></tr>
               )}
-              {rows.map((r) => {
+              {rows.map((r, idx) => {
                 const isArea = r.declared_length_m === null && r.declared_area_m2 !== null;
                 const declared = isArea ? r.declared_area_m2 : r.declared_length_m;
                 const measured = isArea ? r.geom_area_m2 : r.geom_length_m;
@@ -52,14 +52,14 @@ export function Comparacion({ projectId, thresholds }: { projectId: string; thre
                 // el umbral absoluto está en metros: para superficies solo aplica el porcentaje
                 const v = verdict(declared, measured, isArea ? { pct: thresholds.pct, abs_m: 0 } : thresholds);
                 return (
-                  <tr key={r.id} className="border-t">
-                    <td className="p-2 font-medium">{r.name}</td>
-                    <td className="p-2">{workKindLabel[r.kind as WorkKind] ?? r.kind}</td>
-                    <td className="p-2">{declared === null ? "—" : `${fmt(declared)} ${unit}`}</td>
-                    <td className="p-2">{measured === null ? "sin geometría" : `${fmt(measured)} ${unit}`}</td>
-                    <td className="p-2">{diff === null ? "—" : `${sign(diff)} ${unit}`}</td>
-                    <td className="p-2">{pct === null ? "—" : `${sign(pct, 2)} %`}</td>
-                    <td className="p-2"><Badge variant={badge[v].variant}>{badge[v].label}</Badge></td>
+                  <tr key={r.id} className="enter border-t" style={{ "--i": Math.min(idx, 12) } as React.CSSProperties}>
+                    <td data-label="Obra" data-wide className="p-2 font-medium">{r.name}</td>
+                    <td data-label="Tipo" className="p-2">{workKindLabel[r.kind as WorkKind] ?? r.kind}</td>
+                    <td data-label="Declarado" className="p-2 tnum font-mono">{declared === null ? "—" : `${fmt(declared)} ${unit}`}</td>
+                    <td data-label="Calculado" className="p-2 tnum font-mono">{measured === null ? "sin geometría" : `${fmt(measured)} ${unit}`}</td>
+                    <td data-label="Diferencia" className="p-2 tnum font-mono">{diff === null ? "—" : `${sign(diff)} ${unit}`}</td>
+                    <td data-label="%" className="p-2 tnum font-mono">{pct === null ? "—" : `${sign(pct, 2)} %`}</td>
+                    <td data-label="Estado" className="p-2"><Badge variant={badge[v].variant}>{badge[v].label}</Badge></td>
                   </tr>
                 );
               })}

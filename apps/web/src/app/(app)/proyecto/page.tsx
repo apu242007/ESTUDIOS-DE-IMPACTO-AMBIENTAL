@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
 import { ProjectForm } from "@/components/project-form";
@@ -34,12 +33,12 @@ import { Comparacion } from "@/components/project/comparacion";
 import { Mapa } from "@/components/project/mapa";
 import { Relevamiento } from "@/components/project/relevamiento";
 import { Resumen } from "@/components/project/resumen";
-import { GROUPS, SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
+import { MobileSectionBar, PhaseNav } from "@/components/project/phase-nav";
+import { SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
 import { progress, sectionStatus, type SectionId } from "@/lib/checklist";
 import { DEFAULT_THRESHOLDS, parseThresholds, thresholdsValid } from "@/lib/threshold";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre, resetThresholds } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
@@ -182,8 +181,8 @@ function ProjectDetail() {
   const next = at >= 0 && at < flow.length - 1 ? flow[at + 1] : null;
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      <header className="border-b-2 border-basalto pb-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 pb-20 md:pb-0">
+      <header className="pb-1">
         <Link href="/proyectos" className="inline-flex min-h-11 items-center gap-1 text-base text-muted-foreground hover:text-foreground">
           <ArrowLeft aria-hidden="true" className="size-4" />
           Proyectos
@@ -227,74 +226,11 @@ function ProjectDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[13.5rem_minmax(0,1fr)]">
-        <nav aria-label="Secciones del proyecto" className="min-w-0 md:sticky md:top-24 md:self-start">
-          {/* Celular: el selector del sistema. Una fila de 19 botones desplazables no se recorre con guantes. */}
-          <label className="grid gap-1 md:hidden">
-            <span className="text-sm font-medium text-muted-foreground">Sección</span>
-            <NativeSelect value={section} onChange={(e) => { if (isSection(e.target.value)) go(e.target.value); }}>
-              {GROUPS.map((g) => {
-                const visibles = g.items.filter((i) => !i.adminOnly || isAdmin);
-                if (visibles.length === 0) return null;
-                return (
-                  <optgroup key={g.title} label={g.title}>
-                    {visibles.map((it) => (
-                      <option key={it.id} value={it.id}>
-                        {it.label}
-                        {status[it.id] === "ok" ? " — listo" : status[it.id] === "falta" ? " — pendiente" : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </NativeSelect>
-          </label>
+      <PhaseNav section={section} status={status} isAdmin={isAdmin} onGo={go} />
+      <MobileSectionBar section={section} status={status} isAdmin={isAdmin} onGo={go} />
 
-          {/* Escritorio: lista por fases */}
-          <div className="hidden md:flex md:flex-col md:gap-4">
-            {GROUPS.map((g) => {
-              const visibles = g.items.filter((i) => !i.adminOnly || isAdmin);
-              if (visibles.length === 0) return null;
-              return (
-                <div key={g.title} className="grid gap-1">
-                  {g.title !== "Inicio" && <p className="px-3 pt-1 text-sm font-semibold text-primary">{g.title}</p>}
-                  {visibles.map((it) => {
-                    const active = it.id === section;
-                    const st = status[it.id];
-                    return (
-                      <button
-                        key={it.id}
-                        type="button"
-                        onClick={() => go(it.id)}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors",
-                          active
-                            ? "border-jarilla bg-basalto text-white"
-                            : "border-transparent text-foreground/80 hover:bg-card hover:text-foreground",
-                        )}
-                      >
-                        {st && (
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              "size-2.5 shrink-0 rounded-full",
-                              st === "ok" ? "bg-ok" : active ? "bg-jarilla" : "border-2 border-warn bg-transparent",
-                            )}
-                          />
-                        )}
-                        {it.label}
-                        {st && <span className="sr-only">{st === "ok" ? " — listo" : " — pendiente"}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </nav>
-
-        <div className="min-w-0">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
+        <div key={section} className="enter min-w-0">
           {section !== "resumen" && (
             <div className="mb-4">
               <h2 className="font-heading text-2xl font-semibold tracking-tight">{current?.label}</h2>
@@ -336,7 +272,7 @@ function ProjectDetail() {
           {section === "informe" && <Informe projectId={project.id} projectName={project.name} items={items} status={project.status} isAdmin={isAdmin} />}
           {section === "catastro" && isAdmin && <Cadastre projectId={project.id} />}
 
-          <nav aria-label="Anterior y siguiente" className="mt-8 flex flex-wrap justify-between gap-3 border-t pt-4">
+          <nav aria-label="Anterior y siguiente" className="mt-8 hidden flex-wrap justify-between gap-3 border-t pt-4 md:flex">
             {prev ? (
               <Button variant="outline" size="lg" onClick={() => go(prev.id)}>
                 <ArrowLeft aria-hidden="true" />

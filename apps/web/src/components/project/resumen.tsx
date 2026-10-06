@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Check } from "lucide-react";
+import { Contours } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { nextStep, progress, type CheckItem, type SectionId } from "@/lib/checklist";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,8 @@ export function Resumen({
 
   return (
     <div className="grid gap-8">
-      <section aria-labelledby="sig" className="relative overflow-hidden rounded-lg bg-basalto p-6 text-white sm:p-8">
+      <section aria-labelledby="sig" className="relative isolate overflow-hidden rounded-lg bg-basalto p-6 text-white sm:p-8">
+        <Contours className="drift pointer-events-none absolute -right-24 -top-24 -z-10 size-[34rem] text-jarilla/20" />
         <h2 id="sig" className="text-base font-semibold text-jarilla">
           {next ? "Siguiente paso" : "Todo listo"}
         </h2>
@@ -50,18 +52,20 @@ export function Resumen({
             {done} de {total} listos
           </p>
         </div>
-        <div className="sr-only" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Avance del proyecto" />
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-border" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Avance del proyecto">
+          <div className="fill-x h-full rounded-full bg-ok" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
+        </div>
 
         {/* Transecta: cada paso es un waypoint sobre la línea */}
         <ol className="mt-5">
           {items.map((i, idx) => {
             const isNext = next?.id === i.id;
             return (
-              <li key={i.id} className="relative">
+              <li key={i.id} className="enter relative" style={{ "--i": idx } as React.CSSProperties}>
                 {idx < items.length - 1 && (
                   <span
                     aria-hidden="true"
-                    className={cn("absolute left-[1.05rem] top-9 bottom-[-0.25rem] w-0.5", i.done ? "bg-ok" : "border-l-2 border-dashed border-border")}
+                    className={cn("absolute left-[1.05rem] top-9 bottom-[-0.25rem] w-0.5", i.done ? "line-y bg-ok" : "border-l-2 border-dashed border-border")}
                   />
                 )}
                 <button
@@ -74,11 +78,11 @@ export function Resumen({
                     className={cn(
                       "tnum relative z-10 grid size-9 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-medium",
                       i.done && "border-ok bg-ok text-white",
-                      !i.done && isNext && "border-jarilla bg-jarilla text-basalto",
+                      !i.done && isNext && "pulse-ring border-jarilla bg-jarilla text-basalto",
                       !i.done && !isNext && "border-border bg-background text-muted-foreground",
                     )}
                   >
-                    {i.done ? <Check className="size-5" /> : String(idx + 1).padStart(2, "0")}
+                    {i.done ? <Check className="pop size-5" /> : String(idx + 1).padStart(2, "0")}
                   </span>
                   <span className="grid min-w-0 flex-1">
                     <span className="text-base font-semibold">

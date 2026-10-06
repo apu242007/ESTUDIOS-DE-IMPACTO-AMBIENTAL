@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useConfirm } from "@/components/confirm";
 import { ProjectForm } from "@/components/project-form";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { listClients } from "@/lib/data/clients";
@@ -26,6 +27,7 @@ import { duplicateProject, listProjects } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
 import { useOnline } from "@/lib/offline/use-online";
 import type { ProjectRow } from "@/lib/schemas";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
   borrador: "Borrador",
@@ -51,7 +53,9 @@ export default function ProyectosPage() {
   const online = useOnline();
   const router = useRouter();
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [q, setQ] = useState("");
+  const [estado, setEstado] = useState<ProjectRow["status"] | "todos">("todos");
   const [creating, setCreating] = useState(false);
 
   const { data: projects = [], isLoading, error: listError } = useQuery({
@@ -77,6 +81,7 @@ export default function ProyectosPage() {
 
   const needle = q.trim().toLowerCase();
   const rows = projects.filter((p) =>
+    (estado === "todos" || p.status === estado) &&
     [p.name, p.code, p.clients?.name, p.field_area]
       .filter(Boolean)
       .some((t) => (t as string).toLowerCase().includes(needle)),
@@ -119,14 +124,37 @@ export default function ProyectosPage() {
           .
         </p>
       )}
+      <div className="flex flex-wrap items-center gap-3">
       <Input
-        className="h-11 max-w-md bg-background"
+        className="h-11 max-w-md flex-[1_1_18rem] bg-card"
         type="search"
         placeholder="Buscar por nombre, código, cliente o yacimiento…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         aria-label="Buscar proyectos"
       />
+      <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
+        {(["todos", ...Object.keys(STATUS_LABEL)] as const).map((k) => {
+          const n = k === "todos" ? projects.length : projects.filter((p) => p.status === k).length;
+          if (k !== "todos" && n === 0) return null;
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={estado === k}
+              onClick={() => setEstado(k as typeof estado)}
+              className={cn(
+                "inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-base font-medium transition-colors",
+                estado === k ? "border-basalto bg-basalto text-white" : "bg-card hover:border-input",
+              )}
+            >
+              {k === "todos" ? "Todos" : STATUS_LABEL[k]}
+              <span className="tnum font-mono text-sm opacity-70">{n}</span>
+            </button>
+          );
+        })}
+      </div>
+      </div>
 
       {/* Celular: tarjetas. La tabla de 6 columnas no entra en 360 px y dejaba "Abrir" fuera de la pantalla. */}
       <ul aria-label="Proyectos" className="grid gap-3 sm:hidden">
@@ -136,9 +164,9 @@ export default function ProyectosPage() {
             {projects.length === 0 ? "Todavía no hay proyectos." : "Ningún proyecto coincide con la búsqueda."}
           </li>
         )}
-        {rows.map((p) => (
-          <li key={p.id}>
-            <Link href={`/proyecto?id=${p.id}`} className="block rounded-lg bg-card p-4 ring-1 ring-border active:bg-muted">
+        {rows.map((p, i) => (
+          <li key={p.id} className="enter" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
+            <Link href={`/proyecto?id=${p.id}`} className="block rounded-lg bg-card p-4 ring-1 ring-border transition-shadow active:bg-muted">
               <span className="block text-lg font-semibold leading-snug text-primary">{p.name}</span>
               <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 {p.clients?.name && <span className="font-medium text-foreground">{p.clients.name}</span>}
@@ -181,8 +209,8 @@ export default function ProyectosPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((p) => (
-                <TableRow key={p.id}>
+              {rows.map((p, i) => (
+                <TableRow key={p.id} className="enter" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
                   <TableCell>{p.code ?? "—"}</TableCell>
                   <TableCell className="text-base font-semibold">
                     <Link href={`/proyecto?id=${p.id}`} className="text-primary underline-offset-2 hover:underline">
@@ -202,7 +230,11 @@ export default function ProyectosPage() {
                       variant="outline"
                       disabled={dup.isPending || !online}
                       onClick={() => {
-                        if (window.confirm(`¿Duplicar “${p.name}”? Se copian los datos y las obras; el relevamiento y las fotos no.`)) dup.mutate(p.id);
+                        void confirm({
+                          title: `¿Duplicar “${p.name}”?`,
+                          details: ["Se copian los datos generales y las obras del alcance.", "El relevamiento, el GPS y las fotos no se copian."],
+                          confirmLabel: "Duplicar",
+                        }).then((ok) => ok && dup.mutate(p.id));
                       }}
                     >
                       Duplicar
