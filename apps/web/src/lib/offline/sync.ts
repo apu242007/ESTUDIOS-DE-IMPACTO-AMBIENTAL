@@ -1,4 +1,4 @@
-import { getDb, type EiaDB, type LineRec, type OutboxTable, type PhotoRec, type WaypointRec } from "./db";
+import { getDb, type EiaDB, type LineRec, type OutboxRec, type OutboxTable, type PhotoRec, type WaypointRec } from "./db";
 
 /** Transporte al servidor. Se inyecta para poder probar la sincronización sin red. */
 export interface Remote {
@@ -30,8 +30,17 @@ export const pendingCount = (projectId: string, db: EiaDB = getDb()) =>
  * su entrada nueva (seq mayor) sigue en la cola. El envío es idempotente (upsert por id de cliente).
  */
 export async function syncOutbox(remote: Remote, projectId: string, db: EiaDB = getDb()): Promise<SyncResult> {
-  const entries = await db.outbox.where("projectId").equals(projectId).sortBy("seq");
+  let entries: OutboxRec[] = [];
   let sent = 0;
+  // Nunca rechaza: quien la llama lo hace con `void` y un fallo de IndexedDB (cuota, bloqueo) quedaba sin mostrarse.
+  const fail = (err: unknown): SyncResult => ({
+    sent, pending: entries.length - sent, error: err instanceof Error ? err.message : "Error de sincronización",
+  });
+  try {
+    entries = await db.outbox.where("projectId").equals(projectId).sortBy("seq");
+  } catch (err) {
+    return fail(err);
+  }
   for (const e of entries) {
     try {
       if (e.op === "delete") {
@@ -49,11 +58,10 @@ export async function syncOutbox(remote: Remote, projectId: string, db: EiaDB = 
           await db.photos.update(e.id, { uploaded: true });
         }
       }
+      await db.outbox.delete(e.seq as number);
     } catch (err) {
-      const error = err instanceof Error ? err.message : "Error de sincronización";
-      return { sent, pending: entries.length - sent, error };
+      return fail(err);
     }
-    await db.outbox.delete(e.seq as number);
     sent++;
   }
   return { sent, pending: 0 };

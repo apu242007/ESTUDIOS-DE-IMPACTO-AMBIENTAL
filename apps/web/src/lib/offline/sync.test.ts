@@ -97,4 +97,13 @@ describe("syncOutbox", () => {
     expect(calls).toEqual(["line:L1"]);
     expect(await pendingCount("otro", db)).toBe(1);
   });
+  it("un error de IndexedDB no rechaza la promesa: vuelve como error para mostrarlo", async () => {
+    await db.lines.put(line("L1"));
+    await enqueue("lines", "L1", "upsert", P, db);
+    db.outbox.delete = () => Promise.reject(new Error("QuotaExceededError")) as never;
+
+    const r = await syncOutbox(remote, P, db);
+    expect(r.error).toContain("QuotaExceededError");
+    expect(r.pending).toBe(1);
+  });
 });
