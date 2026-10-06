@@ -36,6 +36,14 @@ def _feature_row(job: dict[str, Any], f: Any) -> dict[str, Any]:
     }
 
 
+def _own_path(job: dict[str, Any], path: str) -> str:
+    """El worker usa service role (salta RLS de Storage) y la ruta viene de una fila que escribe el usuario:
+    solo se descargan objetos del proyecto del trabajo (`{org_id}/{project_id}/…`, como los sube la web)."""
+    if not path.startswith(f"{job['org_id']}/{job['project_id']}/") or ".." in path.split("/"):
+        raise ValueError(f"Ruta de archivo fuera del proyecto: {path}")
+    return path
+
+
 def run_layer_job(client: Any, job: dict[str, Any]) -> None:
     """Procesa un layer_import ya reclamado (status 'procesando'). Nunca lanza."""
     try:
@@ -43,7 +51,7 @@ def run_layer_job(client: Any, job: dict[str, Any]) -> None:
             main: Path | None = None
             for f in job.get("files") or []:
                 dest = Path(tmp) / Path(f["path"]).name
-                dest.write_bytes(client.storage.from_(BUCKET).download(f["path"]))
+                dest.write_bytes(client.storage.from_(BUCKET).download(_own_path(job, f["path"])))
                 if f.get("ext", "").lower().lstrip(".") == MAIN_EXT.get(job["format"]):
                     main = dest
             if main is None:
@@ -83,7 +91,7 @@ def run_gps_job(client: Any, job: dict[str, Any]) -> None:
     try:
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / Path(job["file_path"]).name
-            src.write_bytes(client.storage.from_(BUCKET).download(job["file_path"]))
+            src.write_bytes(client.storage.from_(BUCKET).download(_own_path(job, job["file_path"])))
             if (bad := check_signature(src, job["file_kind"])):
                 raise ValueError(bad)
             gpx = src
