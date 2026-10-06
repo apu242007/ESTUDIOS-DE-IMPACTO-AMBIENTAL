@@ -1,5 +1,0 @@
-{
-  "playwright.env": {
-    "PATH": "C:\\Users\\jcastro\\Tools\\node22;${env:PATH}"
-  }
-}
