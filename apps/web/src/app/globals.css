@@ -70,9 +70,9 @@
   --accent-foreground: #0b3843;
   --destructive: #a8321f;
   --border: #cdd5cf;
-  --input: #9fb0ab;
+  --input: #647571;           /* borde de campos: 4:1 sobre el fondo, se ve al sol */
   --ring: #0f4c5c;
-  --ok: #2b7a4b;                  /* musgo: balizado completo */
+  --ok: #226a3f;                  /* musgo: balizado completo */
   --warn: #8a5a00;                /* ocre de jarilla en texto: pendiente */
   --jarilla: #d49a1c;             /* ocre de jarilla en superficie: acción y foco de campo */
   --basalto: #11201f;

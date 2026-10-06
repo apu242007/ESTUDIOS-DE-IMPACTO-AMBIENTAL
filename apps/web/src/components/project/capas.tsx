@@ -35,7 +35,7 @@ function CrsConfirm({ imp, onConfirm, busy }: { imp: LayerImport; onConfirm: (ep
   return (
     <div className="flex flex-wrap items-center gap-2">
       <NativeSelect
-        className="h-11 w-72"
+        className="h-12 w-full sm:w-72"
         aria-label="Sistema de coordenadas de la capa"
         value={epsg}
         onChange={(e) => setEpsg(Number(e.target.value))}
@@ -46,7 +46,7 @@ function CrsConfirm({ imp, onConfirm, busy }: { imp: LayerImport; onConfirm: (ep
           </option>
         ))}
       </NativeSelect>
-      <Button size="lg" className="h-11" disabled={busy} onClick={() => onConfirm(epsg)}>
+      <Button size="lg" className="h-12" disabled={busy} onClick={() => onConfirm(epsg)}>
         Confirmar y procesar
       </Button>
       <span className="w-full text-sm text-muted-foreground">
@@ -84,7 +84,7 @@ function Elementos({ imp, projectId, works }: { imp: LayerImport; projectId: str
     <div className="grid gap-2 border-t pt-3">
       {hasPoints && (
         <div>
-          <Button variant="outline" className="h-11" disabled={wells.isPending} onClick={() => wells.mutate()}>
+          <Button variant="outline" className="h-12" disabled={wells.isPending} onClick={() => wells.mutate()}>
             Crear pozos desde esta capa
           </Button>
         </div>
@@ -99,7 +99,7 @@ function Elementos({ imp, projectId, works }: { imp: LayerImport; projectId: str
             {f.length_m === null && f.area_m2 === null && "punto"}
           </span>
           <NativeSelect
-            className="h-11"
+            className="h-12"
             aria-label={`Obra de ${f.name ?? "elemento"}`}
             value={f.work_id ?? ""}
             onChange={(e) => link.mutate({ id: f.id, workId: e.target.value || null })}
@@ -210,18 +210,18 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
 
             <div className="flex flex-wrap gap-2">
               {(imp.status === "error" || imp.status === "listo" || imp.status === "incompleto") && (
-                <Button variant="outline" className="h-11" onClick={() => requeue.mutate({ id: imp.id })}>
+                <Button variant="outline" className="h-12" onClick={() => requeue.mutate({ id: imp.id })}>
                   Reprocesar
                 </Button>
               )}
               {(imp.status === "listo" || imp.status === "incompleto") && (
-                <Button variant="outline" className="h-11" onClick={() => setOpen(open === imp.id ? null : imp.id)}>
+                <Button variant="outline" className="h-12" onClick={() => setOpen(open === imp.id ? null : imp.id)}>
                   {open === imp.id ? "Ocultar elementos" : "Ver elementos y vincular a obras"}
                 </Button>
               )}
               <Button
                 variant="outline"
-                className="h-11"
+                className="h-12"
                 disabled={imp.status === "procesando"}
                 onClick={() => {
                   if (window.confirm(`¿Eliminar la capa “${imp.base_name}” y sus elementos?`)) del.mutate(imp);

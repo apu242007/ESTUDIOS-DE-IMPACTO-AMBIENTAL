@@ -52,7 +52,7 @@ export function TextoEditable({
       />
       {override !== null && (
         <div>
-          <Button variant="outline" size="sm" disabled={disabled} onClick={() => onSave(null)}>
+          <Button variant="outline" disabled={disabled} onClick={() => onSave(null)}>
             Restablecer al texto original
           </Button>
         </div>

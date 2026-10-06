@@ -268,7 +268,7 @@ function ProjectDetail() {
                         onClick={() => go(it.id)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors",
+                          "flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-md border-l-4 px-3 text-base font-medium transition-colors",
                           active
                             ? "border-jarilla bg-basalto text-white"
                             : "border-transparent text-foreground/80 hover:bg-card hover:text-foreground",

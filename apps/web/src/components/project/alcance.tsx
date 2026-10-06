@@ -43,7 +43,7 @@ function NumCell({
 }) {
   return (
     <Input
-      className="h-10 w-28"
+      className="h-11 w-28"
       type="number"
       step="any"
       min={0}
@@ -71,7 +71,7 @@ function TextCell({
 }) {
   return (
     <Input
-      className={className ?? "h-10"}
+      className={className ?? "h-11"}
       defaultValue={value ?? ""}
       aria-label={label}
       onBlur={(e) => {
@@ -165,7 +165,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                 <tr key={w.id} className="border-t align-top">
                   <td className="p-2">
                     <NativeSelect
-                      className="h-10 w-44"
+                      className="h-11 w-44"
                       aria-label="Tipo de obra"
                       value={w.kind}
                       onChange={(e) => save(w, { kind: e.target.value as WorkKind })}
@@ -178,14 +178,14 @@ export function Alcance({ projectId }: { projectId: string }) {
                     </NativeSelect>
                   </td>
                   <td className="p-2">
-                    <TextCell className="h-10 w-64" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
+                    <TextCell className="h-11 w-64" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
                   </td>
                   <td className="p-2">
-                    <TextCell className="h-10 w-24" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
+                    <TextCell className="h-11 w-24" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
                   </td>
                   <td className="p-2">
                     <NativeSelect
-                      className="h-10 w-40"
+                      className="h-11 w-40"
                       aria-label="Etapa"
                       value={w.stage ?? ""}
                       onChange={(e) => save(w, { stage: (e.target.value || null) as Stage | null })}
@@ -208,7 +208,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                     <NumCell value={w.diameter_in} label="Diámetro" onSave={(v) => save(w, { diameter_in: v })} />
                   </td>
                   <td className="p-2">
-                    <TextCell className="h-10 w-28" value={w.material} label="Material" onSave={(v) => save(w, { material: v })} />
+                    <TextCell className="h-11 w-28" value={w.material} label="Material" onSave={(v) => save(w, { material: v })} />
                   </td>
                   <td className="p-2 whitespace-nowrap text-muted-foreground">
                     {w.geom_length_m !== null && `${fmt(w.geom_length_m)} m`}
@@ -256,7 +256,7 @@ export function Alcance({ projectId }: { projectId: string }) {
               {preview.map((p, i) => (
                 <div key={i} className="grid gap-2 rounded-lg border p-2 sm:grid-cols-[11rem_1fr_7rem_7rem_5rem_auto] sm:items-center">
                   <NativeSelect
-                    className="h-10"
+                    className="h-11"
                     aria-label="Tipo"
                     value={p.kind}
                     onChange={(e) =>
@@ -270,7 +270,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                     ))}
                   </NativeSelect>
                   <Input
-                    className="h-10"
+                    className="h-11"
                     aria-label="Nombre"
                     value={p.name}
                     onChange={(e) => setPreview((rows) => rows.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))}

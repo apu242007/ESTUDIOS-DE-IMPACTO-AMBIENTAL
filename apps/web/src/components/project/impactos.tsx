@@ -28,7 +28,7 @@ const signed = (n: number, d = 0) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Ma
 
 /** Color por gravedad. Nunca es el único indicador: la celda muestra el valor y la inicial de la categoría. */
 function tone(level: "positivo" | number | null): string {
-  if (level === null) return "text-muted-foreground/60";
+  if (level === null) return "text-muted-foreground";
   if (level === "positivo") return "bg-primary/10 text-primary";
   if (level === 0) return "bg-ok/10 text-ok";
   if (level === 1) return "bg-warn/15 text-warn";
@@ -292,7 +292,7 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
                             {im?.importance != null ? (
                               <>
                                 <span className="tnum font-mono leading-none">{signed(im.importance)}</span>
-                                <span aria-hidden="true" className="text-[10px] leading-none opacity-80">{im.category?.[0] ?? ""}</span>
+                                <span aria-hidden="true" className="text-xs leading-none">{im.category?.[0] ?? ""}</span>
                               </>
                             ) : (
                               <span aria-hidden="true">+</span>

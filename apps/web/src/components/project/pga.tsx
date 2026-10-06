@@ -168,13 +168,13 @@ export function Pga({ orgId, project }: { orgId: string; project: ProjectRow }) 
                       <td className="px-3 py-2">{text(m)}</td>
                       <td className="px-3 py-2">{m.resource ?? "—"}</td>
                       <td className="px-3 py-2">
-                        <NativeSelect aria-label="Cronograma" className="h-10 w-48" value={s?.timing ?? m.timing ?? ""} onChange={(e) => upd.mutate({ id: m.id, patch: { timing: e.target.value || null } })}>
+                        <NativeSelect aria-label="Cronograma" className="h-11 w-48" value={s?.timing ?? m.timing ?? ""} onChange={(e) => upd.mutate({ id: m.id, patch: { timing: e.target.value || null } })}>
                           <option value="">—</option>
                           {[...new Set([...(m.timing ? [m.timing] : []), ...opciones.timing])].map((o) => <option key={o} value={o}>{o}</option>)}
                         </NativeSelect>
                       </td>
                       <td className="px-3 py-2">
-                        <NativeSelect aria-label="Responsable" className="h-10 w-48" value={s?.responsible ?? m.responsible ?? ""} onChange={(e) => upd.mutate({ id: m.id, patch: { responsible: e.target.value || null } })}>
+                        <NativeSelect aria-label="Responsable" className="h-11 w-48" value={s?.responsible ?? m.responsible ?? ""} onChange={(e) => upd.mutate({ id: m.id, patch: { responsible: e.target.value || null } })}>
                           <option value="">—</option>
                           {[...new Set([...(m.responsible ? [m.responsible] : []), ...opciones.responsible])].map((o) => <option key={o} value={o}>{o}</option>)}
                         </NativeSelect>

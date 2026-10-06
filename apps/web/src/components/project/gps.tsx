@@ -118,13 +118,13 @@ export function Gps({ orgId, projectId }: { orgId: string; projectId: string }) 
             {imp.status === "listo" && <Informe imp={imp} />}
             <div className="flex flex-wrap gap-2">
               {(imp.status === "listo" || imp.status === "error") && (
-                <Button variant="outline" className="h-11" onClick={() => requeue.mutate(imp.id)}>
+                <Button variant="outline" className="h-12" onClick={() => requeue.mutate(imp.id)}>
                   {imp.status === "listo" ? "Volver a cruzar" : "Reintentar"}
                 </Button>
               )}
               <Button
                 variant="outline"
-                className="h-11"
+                className="h-12"
                 disabled={imp.status === "procesando"}
                 onClick={() => {
                   if (window.confirm(`¿Quitar “${nombre(imp.file_path)}”? Las posiciones ya cruzadas se conservan.`)) del.mutate(imp);
