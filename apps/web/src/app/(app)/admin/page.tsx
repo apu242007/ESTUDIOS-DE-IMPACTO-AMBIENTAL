@@ -9,6 +9,7 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Field } from "@/components/field";
@@ -24,6 +25,7 @@ import {
   removeMember,
   updateCode,
 } from "@/lib/data/admin";
+import { getOrgHeader, signedLogoUrl, uploadOrgHeader } from "@/lib/data/clients";
 import { errMsg } from "@/lib/data/util";
 import { codeFormSchema, memberFormSchema, roleSchema, type Role } from "@/lib/schemas";
 
@@ -205,6 +207,58 @@ function Siglas({ orgId }: { orgId: string }) {
   );
 }
 
+function Encabezado({ orgId }: { orgId: string }) {
+  const qc = useQueryClient();
+  const { data: url, isLoading } = useQuery({
+    queryKey: ["org-header", orgId],
+    queryFn: async () => {
+      const path = await getOrgHeader(orgId);
+      return path ? signedLogoUrl(path) : null;
+    },
+    staleTime: 240_000,
+  });
+  const up = useMutation({
+    mutationFn: (f: File) => uploadOrgHeader(orgId, f),
+    onSuccess: () => {
+      toast.success("Encabezado guardado. Se usa en los próximos informes.");
+      void qc.invalidateQueries({ queryKey: ["org-header", orgId] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Encabezado de la consultora</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <p className="text-muted-foreground">Imagen con el logo y los datos de contacto. Va arriba de cada página del informe. PNG o JPG, apaisada.</p>
+        {isLoading ? (
+          <Skeleton className="h-20" />
+        ) : url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="Encabezado actual de la consultora" className="max-h-24 w-full rounded bg-white object-contain p-2 ring-1 ring-border" />
+        ) : (
+          <p className="text-warn">Todavía no hay encabezado: los informes salen sin logo de la consultora.</p>
+        )}
+        <label className="inline-flex h-12 w-full cursor-pointer has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-ring items-center justify-center rounded-md bg-primary px-4 text-base font-medium text-primary-foreground sm:w-fit">
+          {up.isPending ? "Subiendo…" : url ? "Cambiar encabezado" : "Subir encabezado"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            className="sr-only"
+            disabled={up.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) up.mutate(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { orgId, isAdmin, session } = useAuth();
   const [tab, setTab] = useState(isAdmin ? "usuarios" : "catalogos");
@@ -215,9 +269,10 @@ export default function AdminPage() {
     <div className="grid gap-4">
       <h1 className="text-2xl font-bold">Administración</h1>
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
-        <TabsList>
+        <TabsList className="max-w-full justify-start overflow-x-auto">
           {isAdmin && <TabsTrigger value="usuarios">Usuarios</TabsTrigger>}
           {isAdmin && <TabsTrigger value="siglas">Siglas</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="encabezado">Encabezado</TabsTrigger>}
           <TabsTrigger value="catalogos">Catálogos</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios" className="pt-4">
@@ -225,6 +280,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="siglas" className="pt-4">
           <Siglas orgId={orgId} />
+        </TabsContent>
+        <TabsContent value="encabezado" className="pt-4">
+          <Encabezado orgId={orgId} />
         </TabsContent>
         <TabsContent value="catalogos" className="pt-4">
           <Catalogos orgId={orgId} />

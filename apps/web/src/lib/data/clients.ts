@@ -92,3 +92,26 @@ export async function signedLogoUrl(path: string): Promise<string | null> {
   const res = await createClient().storage.from("project-files").createSignedUrl(path, 300);
   return res.data?.signedUrl ?? null;
 }
+
+/** Encabezado de la consultora (logo + contacto) que el informe pone arriba de cada página. */
+export async function getOrgHeader(orgId: string): Promise<string | null> {
+  const res = await createClient().from("organizations").select("header_image_path").eq("id", orgId).single();
+  return z.object({ header_image_path: z.string().nullable() }).parse(must(res)).header_image_path;
+}
+
+/** Solo un admin puede (política org_update). Sube primero y recién después apunta la organización al archivo nuevo. */
+export async function uploadOrgHeader(orgId: string, file: File): Promise<void> {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!LOGO_EXT.includes(ext as (typeof LOGO_EXT)[number])) throw new Error("El encabezado debe ser PNG o JPG");
+  const supabase = createClient();
+  const old = await getOrgHeader(orgId);
+  const path = `${orgId}/branding/${crypto.randomUUID()}.${ext}`;
+  const up = await supabase.storage.from("project-files").upload(path, file, { upsert: false });
+  if (up.error) throw new Error(up.error.message);
+  const upd = await supabase.from("organizations").update({ header_image_path: path }).eq("id", orgId).select("id");
+  if (upd.error || !upd.data || upd.data.length === 0) {
+    await supabase.storage.from("project-files").remove([path]);
+    throw new Error(upd.error?.message ?? "No se pudo guardar el encabezado");
+  }
+  if (old) await supabase.storage.from("project-files").remove([old]);
+}

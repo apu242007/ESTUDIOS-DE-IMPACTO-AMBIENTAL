@@ -182,7 +182,7 @@ def _fecha(today: dt.date) -> str:
 
 def _draft_header(section: Any) -> None:
     """Encabezado condicional: las versiones no aprobadas salen marcadas (la final, no)."""
-    p = section.header.paragraphs[0]
+    p = section.header.paragraphs[0] if not section.header.paragraphs[0].runs else section.header.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = p.add_run("BORRADOR — versión sin aprobar")
     r.bold = True
@@ -279,12 +279,20 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
     st.font.name = "Arial"
     st.font.size = Pt(10.5)
     _page_number_footer(sec)
+    if ctx.get("header_image"):
+        hp = sec.header.paragraphs[0]
+        hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        hp.add_run().add_picture(io.BytesIO(ctx["header_image"]), width=Cm(16))
     if not ctx.get("final"):
         _draft_header(sec)
 
     # --- carátula
-    for _ in range(4):
+    for _ in range(2 if ctx.get("client_logo") else 4):
         doc.add_paragraph()
+    if ctx.get("client_logo"):
+        lp = doc.add_paragraph()
+        lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        lp.add_run().add_picture(io.BytesIO(ctx["client_logo"]), height=Cm(3))
     t = doc.add_paragraph()
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = t.add_run(TITULO.get(p["doc_type"], "INFORME AMBIENTAL"))
@@ -372,6 +380,8 @@ def render_with_template(template: bytes, ctx: dict[str, Any], photos: list[dict
                    "imagen": InlineImage(tpl, io.BytesIO(ph["jpeg"]), width=Cm(8))} for ph in photos],
         "capas": ctx["layers"], "gps": ctx["gps"], "fecha": _fecha(dt.date.today()),
         "titulo": TITULO.get(p["doc_type"], "INFORME AMBIENTAL"),
+        "encabezado": InlineImage(tpl, io.BytesIO(ctx["header_image"]), width=Cm(16)) if ctx.get("header_image") else "",
+        "logo_cliente": InlineImage(tpl, io.BytesIO(ctx["client_logo"]), height=Cm(3)) if ctx.get("client_logo") else "",
     }
     from app.core import report_sections as rs
     from app.core.text_template import project_vars
@@ -449,7 +459,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
             return b
         return _all(q)
 
-    proj = sel("projects", "*, clients(name, cuit, address)", id=pid)[0]
+    proj = sel("projects", "*, clients(name, cuit, address, logo_path)", id=pid)[0]
     client_row = proj.pop("clients", None) or {}
     codes = {c["code"]: c["meaning"] for c in sel("catalog_codes", "code, meaning", org_id=org)}
     fichas = {l["id"]: l["ficha_no"] for l in sel("survey_lines", "id, ficha_no", project_id=pid)}
@@ -502,6 +512,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
             if r.get("file_path")},
         "final": (job.get("params") or {}).get("final") is True,  # estricto: "false" (texto) no es True
         "_org": job["org_id"],
+        "_header_path": (sel("organizations", "header_image_path", id=org) or [{}])[0].get("header_image_path"),
         "project": proj, "client": client_row,
         "works": sel("works_compare", "name, kind, declared_length_m, declared_area_m2, geom_length_m, geom_area_m2, sort_order", project_id=pid),
         "interferencias": inter, "interferencias_sin_posicion": sin,
@@ -515,6 +526,19 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
     })
     context["_xml_removed"] = removed_count
     return context
+
+
+def _load_branding(client: Any, ctx: dict[str, Any], log: list[str]) -> None:
+    """Encabezado de la consultora y logo del cliente. Si faltan o no bajan, el informe sale igual y se avisa."""
+    for key, path, label in (("header_image", ctx.get("_header_path"), "encabezado de la consultora (Administración)"),
+                             ("client_logo", (ctx.get("client") or {}).get("logo_path"), "logo del cliente (Clientes)")):
+        if not path:
+            log.append(f"Sin {label}: el informe sale sin esa imagen.")
+            continue
+        try:
+            ctx[key] = client.storage.from_(BUCKET).download(_own_path(ctx, path))
+        except Exception as e:
+            log.append(f"No se pudo usar el {label}: {e}")
 
 
 def _own_path(ctx: dict[str, Any], path: str) -> str:
@@ -602,6 +626,7 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             log.append(f"Se quitaron {ctx['_xml_removed']} caracteres de control de los textos "
                        "(suelen venir de pegar desde Word).")
         ctx["_omitted"] = []
+        _load_branding(client, ctx, log)
         photos = _load_photos(client, ctx, params, log)
         ctx["figure_images"] = {}
         for kind, path in (ctx.get("figures") or {}).items():

@@ -328,3 +328,25 @@ def test_job_achica_fotos_si_el_docx_supera_el_limite(monkeypatch: pytest.Monkey
     up = c.updates[-1]
     assert up["status"] == "listo" and "fotos reducidas a 640 px" in up["log"]
     assert len(c.uploads["o/p/docs/b1/informe.docx"]) < tamano
+
+
+def test_job_pone_encabezado_de_la_consultora_y_logo_del_cliente(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    t = base_tables()
+    t["organizations"] = [{"id": "o", "header_image_path": "o/branding/h.jpg"}]
+    t["projects"][0]["clients"]["logo_path"] = "o/logos/c.jpg"
+    c = FakeClient(t, {"o/p/photos/f1.jpg": jpeg(), "o/branding/h.jpg": jpeg(), "o/logos/c.jpg": jpeg()})
+    run_docs_job(c, job())
+    assert c.updates[-1]["status"] == "listo"
+    d = Document(io.BytesIO(c.uploads["o/p/docs/b1/informe.docx"]))
+    assert d.sections[0].header._element.xpath(".//*[local-name()='blip']")  # imagen en el encabezado
+    assert "BORRADOR" in "".join(p.text for p in d.sections[0].header.paragraphs)
+    assert len(d.inline_shapes) >= 2  # logo del cliente en la carátula + la foto
+
+
+def test_job_sin_logos_avisa_y_sale_igual(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    c = FakeClient(base_tables(), {"o/p/photos/f1.jpg": jpeg()})
+    run_docs_job(c, job())
+    up = c.updates[-1]
+    assert up["status"] == "listo" and "Sin encabezado de la consultora" in up["log"] and "Sin logo del cliente" in up["log"]
