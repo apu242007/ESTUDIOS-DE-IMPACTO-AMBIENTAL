@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ function TextCell({
 }
 
 export function Alcance({ projectId }: { projectId: string }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = ["works", projectId];
   const { data: works = [], isLoading } = useQuery({ queryKey: key, queryFn: () => listWorks(projectId) });
@@ -219,7 +221,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        if (window.confirm(`¿Eliminar “${w.name}”?`)) del.mutate(w.id);
+                        void confirm({ title: `¿Quitar “${w.name}” del alcance?`, confirmLabel: "Quitar", danger: true }).then((ok) => ok && del.mutate(w.id));
                       }}
                     >
                       Quitar

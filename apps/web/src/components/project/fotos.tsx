@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ function Foto({
   onAddCat: (label: string) => Promise<string>;
   onDelete: () => void;
 }) {
+  const confirm = useConfirm();
   return (
     <Card className="overflow-hidden">
       <div className="aspect-[4/3] bg-muted">
@@ -66,7 +68,7 @@ function Foto({
         <Button
           variant="outline"
           onClick={() => {
-            if (window.confirm("¿Quitar esta foto del anexo?")) onDelete();
+            void confirm({ title: "¿Quitar esta foto del anexo?", confirmLabel: "Quitar", danger: true }).then((ok) => ok && onDelete());
           }}
         >
           Quitar

@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -165,6 +166,7 @@ export function CrudCatalog({
   warning?: (values: CatalogValues) => string | null;
   headerExtra?: (items: CatalogItem[]) => React.ReactNode;
 }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = [queryKey, orgId];
   const { data: items = [], isLoading, error } = useQuery({ queryKey: key, queryFn: load });
@@ -241,7 +243,7 @@ export function CrudCatalog({
                         variant="outline"
                         disabled={del.isPending}
                         onClick={() => {
-                          if (window.confirm(`¿Eliminar ${singular} “${item.title}”? Esta acción no se puede deshacer.`)) del.mutate(item.id);
+                          void confirm({ title: `¿Eliminar ${singular} “${item.title}”?`, details: ["Esta acción no se puede deshacer."], confirmLabel: "Eliminar", danger: true }).then((ok) => ok && del.mutate(item.id));
                         }}
                       >Eliminar</Button>
                     </div>

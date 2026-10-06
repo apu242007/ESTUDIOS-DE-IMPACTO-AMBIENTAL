@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import type { ProjectRow } from "@/lib/schemas";
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export function Pga({ orgId, project }: { orgId: string; project: ProjectRow }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const pid = project.id;
   const { data: measures = [], isLoading } = useQuery({ queryKey: ["measures", orgId], queryFn: () => listMeasures(orgId) });
@@ -106,7 +108,7 @@ export function Pga({ orgId, project }: { orgId: string; project: ProjectRow }) 
             </NativeSelect>
           </label>
           <Button size="lg" variant="outline" disabled={add.isPending || negCats.length === 0} onClick={sugerir}>Sugerir según la matriz</Button>
-          <Button variant="outline" disabled={elegidas.length === 0 || del.isPending} onClick={() => { if (window.confirm(`¿Quitar las ${elegidas.length} medidas elegidas?`)) del.mutate(elegidas.map((m) => m.id)); }}>
+          <Button variant="outline" disabled={elegidas.length === 0 || del.isPending} onClick={() => { void confirm({ title: `¿Quitar las ${elegidas.length} medidas elegidas?`, confirmLabel: "Quitar todas", danger: true }).then((ok) => ok && del.mutate(elegidas.map((m) => m.id))); }}>
             Quitar todas
           </Button>
         </div>

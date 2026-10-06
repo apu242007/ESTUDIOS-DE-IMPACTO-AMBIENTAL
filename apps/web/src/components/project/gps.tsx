@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ function Informe({ imp }: { imp: GpsImport }) {
 }
 
 export function Gps({ orgId, projectId }: { orgId: string; projectId: string }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = ["gps-imports", projectId];
   const input = useRef<HTMLInputElement>(null);
@@ -127,7 +129,7 @@ export function Gps({ orgId, projectId }: { orgId: string; projectId: string }) 
                 className="h-12"
                 disabled={imp.status === "procesando"}
                 onClick={() => {
-                  if (window.confirm(`¿Quitar “${nombre(imp.file_path)}”? Las posiciones ya cruzadas se conservan.`)) del.mutate(imp);
+                  void confirm({ title: `¿Quitar “${nombre(imp.file_path)}”?`, details: ["Las posiciones ya cruzadas con los waypoints se conservan."], confirmLabel: "Quitar", danger: true }).then((ok) => ok && del.mutate(imp));
                 }}
               >
                 Quitar

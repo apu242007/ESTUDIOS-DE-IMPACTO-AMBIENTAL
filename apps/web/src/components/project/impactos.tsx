@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -185,6 +186,7 @@ function CellDialog({
 }
 
 export function Impactos({ orgId, projectId }: { orgId: string; projectId: string }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = ["impacts", projectId];
   const { data: cat, isLoading: l1 } = useQuery({ queryKey: ["impact-catalog", orgId], queryFn: () => loadImpactCatalog(orgId) });
@@ -251,7 +253,7 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
           variant="outline"
           disabled={impacts.length === 0 || del.isPending}
           onClick={() => {
-            if (window.confirm(`¿Limpiar toda la matriz del proyecto (${impacts.length} impactos)?`)) del.mutate(impacts.map((i) => i.id));
+            void confirm({ title: "¿Limpiar toda la matriz del proyecto?", details: [`Se borran los ${impacts.length} impactos cargados.`], confirmLabel: "Limpiar matriz", danger: true }).then((ok) => ok && del.mutate(impacts.map((i) => i.id)));
           }}
         >
           Limpiar matriz
@@ -382,14 +384,14 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
             if (im) del.mutate([im.id], { onSuccess: () => setOpen(null) });
           }}
           onApplyRow={(v) => {
-            if (window.confirm(`Se cargan estos valores en las ${cat.actions.length} acciones de “${openFactor.name}” (reemplaza las existentes). ¿Seguir?`)) {
-              save.mutate(cat.actions.map((a) => ({ ...v, action_id: a.id, factor_id: openFactor.id })), { onSuccess: () => setOpen(null) });
-            }
+            void confirm({ title: `¿Cargar estos valores en toda la fila de “${openFactor.name}”?`, details: [`Se aplican a las ${cat.actions.length} acciones y reemplazan los valores existentes.`], confirmLabel: "Cargar valores" }).then((ok) => {
+              if (ok) save.mutate(cat.actions.map((a) => ({ ...v, action_id: a.id, factor_id: openFactor.id })), { onSuccess: () => setOpen(null) });
+            });
           }}
           onApplyColumn={(v) => {
-            if (window.confirm(`Se cargan estos valores en los ${cat.factors.length} factores de “${openAction.name}” (reemplaza los existentes). ¿Seguir?`)) {
-              save.mutate(cat.factors.map((f) => ({ ...v, action_id: openAction.id, factor_id: f.id })), { onSuccess: () => setOpen(null) });
-            }
+            void confirm({ title: `¿Cargar estos valores en toda la columna de “${openAction.name}”?`, details: [`Se aplican a los ${cat.factors.length} factores y reemplazan los valores existentes.`], confirmLabel: "Cargar valores" }).then((ok) => {
+              if (ok) save.mutate(cat.factors.map((f) => ({ ...v, action_id: openAction.id, factor_id: f.id })), { onSuccess: () => setOpen(null) });
+            });
           }}
         />
       )}

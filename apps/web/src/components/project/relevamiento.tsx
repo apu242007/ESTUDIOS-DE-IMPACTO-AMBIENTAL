@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -86,6 +87,7 @@ function WaypointCard({
   wp: WaypointRec; orgId: string; codes: { code: string; meaning: string }[]; category: string; isNew: boolean;
   onDelete: () => void;
 }) {
+  const confirm = useConfirm();
   const photos = useLiveQuery(() => getDb().photos.where("waypointId").equals(wp.id).toArray(), [wp.id]) ?? [];
   const { isAdmin } = useAuth();
   const qc = useQueryClient();
@@ -227,7 +229,7 @@ function WaypointCard({
         {photos.length > 0 && (
           <div className="flex flex-wrap gap-3">
             {photos.map((p) => (
-              <Thumb key={p.id} blob={p.blob} uploaded={p.uploaded} onRemove={() => { if (window.confirm("¿Quitar esta foto?")) void deletePhoto(p.id); }} />
+              <Thumb key={p.id} blob={p.blob} uploaded={p.uploaded} onRemove={() => { void confirm({ title: "¿Quitar esta foto?", confirmLabel: "Quitar", danger: true }).then((ok) => { if (ok) void deletePhoto(p.id); }); }} />
             ))}
           </div>
         )}
@@ -236,7 +238,7 @@ function WaypointCard({
           <Button
             variant="destructive"
             className="h-12"
-            onClick={() => { if (window.confirm(`¿Quitar el waypoint ${wp.number ?? ""} con sus fotos?`)) onDelete(); }}
+            onClick={() => { void confirm({ title: `¿Quitar el waypoint ${wp.number ?? ""}?`, details: ["Se quitan también sus fotos."], confirmLabel: "Quitar waypoint", danger: true }).then((ok) => ok && onDelete()); }}
           >
             Quitar waypoint {wp.number ?? ""}
           </Button>
@@ -289,6 +291,7 @@ function writeCat(v: string) {
 }
 
 function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: string; onBack: () => void; sync: SyncState }) {
+  const confirm = useConfirm();
   const projectId = line.projectId;
   const waypoints = (useLiveQuery(() => getDb().waypoints.where("lineId").equals(line.id).toArray(), [line.id]) ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
   const prev = useLiveQuery(() => getDb().lines.where("projectId").equals(projectId).toArray(), [projectId]) ?? [];
@@ -410,7 +413,7 @@ function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: stri
         variant="destructive"
         className="mt-6 h-12 justify-self-start"
         onClick={() => {
-          if (window.confirm("¿Eliminar la ficha completa con sus waypoints y fotos?")) { void deleteLine(line.id); onBack(); }
+          void confirm({ title: "¿Eliminar la ficha completa?", details: ["Se eliminan todos sus waypoints y fotos, también los que no se subieron."], confirmLabel: "Eliminar ficha", danger: true }).then((ok) => { if (ok) { void deleteLine(line.id); onBack(); } });
         }}
       >
         Eliminar ficha

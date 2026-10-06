@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +34,7 @@ type MemberValues = z.infer<typeof memberFormSchema>;
 type CodeValues = z.infer<typeof codeFormSchema>;
 
 function Usuarios({ orgId, myId }: { orgId: string; myId: string }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = ["members", orgId];
   const { data: members = [] } = useQuery({ queryKey: key, queryFn: () => listMembers(orgId) });
@@ -120,7 +122,7 @@ function Usuarios({ orgId, myId }: { orgId: string; myId: string }) {
                     disabled={lastAdmin}
                     title={lastAdmin ? "Debe quedar al menos un administrador" : undefined}
                     onClick={() => {
-                      if (window.confirm(`¿Quitar a ${m.email} de la organización?`)) remove.mutate(m.user_id);
+                      void confirm({ title: `¿Quitar a ${m.email} de la organización?`, details: ["Deja de ver los proyectos de la organización."], confirmLabel: "Quitar", danger: true }).then((ok) => ok && remove.mutate(m.user_id));
                     }}
                   >
                     Quitar
@@ -136,6 +138,7 @@ function Usuarios({ orgId, myId }: { orgId: string; myId: string }) {
 }
 
 function Siglas({ orgId }: { orgId: string }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = ["codes", orgId];
   const { data: codes = [] } = useQuery({ queryKey: key, queryFn: () => listCodes(orgId) });
@@ -194,7 +197,7 @@ function Siglas({ orgId }: { orgId: string }) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (window.confirm(`¿Eliminar la sigla ${c.code}?`)) del.mutate(c.id);
+                  void confirm({ title: `¿Eliminar la sigla ${c.code}?`, confirmLabel: "Eliminar", danger: true }).then((ok) => ok && del.mutate(c.id));
                 }}
               >
                 Eliminar

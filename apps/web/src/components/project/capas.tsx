@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -118,6 +119,7 @@ function Elementos({ imp, projectId, works }: { imp: LayerImport; projectId: str
 }
 
 export function Capas({ orgId, projectId }: { orgId: string; projectId: string }) {
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const key = ["layer-imports", projectId];
   const input = useRef<HTMLInputElement>(null);
@@ -224,7 +226,7 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
                 className="h-12"
                 disabled={imp.status === "procesando"}
                 onClick={() => {
-                  if (window.confirm(`¿Eliminar la capa “${imp.base_name}” y sus elementos?`)) del.mutate(imp);
+                  void confirm({ title: `¿Quitar la capa “${imp.base_name}”?`, details: ["Se eliminan también sus elementos y las medidas calculadas."], confirmLabel: "Quitar", danger: true }).then((ok) => ok && del.mutate(imp));
                 }}
               >
                 Quitar

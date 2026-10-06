@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import { errMsg } from "@/lib/data/util";
 import type { ClientRow } from "@/lib/schemas";
 
 export default function ClientesPage() {
+  const confirm = useConfirm();
   const { orgId } = useAuth();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<ClientRow | "new" | null>(null);
@@ -94,7 +96,7 @@ export default function ClientesPage() {
                       variant="outline"
                       disabled={del.isPending}
                       onClick={() => {
-                        if (window.confirm(`¿Eliminar a ${c.name}?`)) del.mutate(c.id);
+                        void confirm({ title: `¿Eliminar a ${c.name}?`, confirmLabel: "Eliminar", danger: true }).then((ok) => ok && del.mutate(c.id));
                       }}
                     >
                       Eliminar
