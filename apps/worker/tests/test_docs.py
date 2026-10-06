@@ -378,3 +378,16 @@ def test_fecha_de_la_caratula_sale_del_proyecto() -> None:
     d = Document(io.BytesIO(build_docx(c, [])))
     assert "Septiembre de 2026" in text_of(build_docx(c, []))
     assert "Trabajo Nº 2947-26." in "".join(p.text for p in d.sections[0].footer.paragraphs)
+
+
+def test_paquete_final_mas_grande_que_el_limite_da_mensaje_claro(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    monkeypatch.setattr(docs, "make_package", lambda *_a: b"x" * (docs.MAX_UPLOAD + 1))
+    c = FakeClient(base_tables(), {"o/p/photos/f1.jpg": jpeg(), "o/p/photos/roto.jpg": jpeg()})
+
+    run_docs_job(c, {**job(), "params": {**job()["params"], "final": True}})
+
+    up = c.updates[-1]
+    assert up["status"] == "error"
+    assert "paquete final pesa" in up["log"] and "Error inesperado" not in up["log"]
+    assert "o/p/docs/b1/paquete_final.zip" not in c.uploads

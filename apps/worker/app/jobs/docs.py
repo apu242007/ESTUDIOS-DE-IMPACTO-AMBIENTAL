@@ -738,7 +738,9 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
         log.extend(ctx.get("_warn") or [])
         log.append("Versión FINAL (aprobada): sin marca de borrador." if ctx.get("final") else "Versión BORRADOR: sin aprobar.")
         if ctx.get("final"):
-            client.storage.from_(BUCKET).upload(f"{base}/paquete_final.zip", make_package(client, ctx, docx_bytes, pdf_bytes, log),
+            package = make_package(client, ctx, docx_bytes, pdf_bytes, log)
+            _check_size("paquete final", package)  # sin esto Storage lo rechaza y solo queda "Error inesperado"
+            client.storage.from_(BUCKET).upload(f"{base}/paquete_final.zip", package,
                                                 {"content-type": "application/zip", "upsert": "true"})
             upd["package_path"] = f"{base}/paquete_final.zip"
     except (ValueError, RuntimeError) as e:
