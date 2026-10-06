@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { listProjects } from "@/lib/data/projects";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SelectAdd } from "@/components/select-add";
+import { useAuth } from "@/lib/auth/auth-provider";
+import { createImpactAttr } from "@/lib/data/catalogos";
 import {
   copyImpacts, deleteImpacts, listImpacts, loadImpactCatalog, saveImpacts, stageName, stageOrder,
   type ActionRow, type FactorRow, type ImpactCatalog, type ImpactInput, type ImpactRow, type StageKey,
@@ -75,8 +78,9 @@ function CopyDialog({
 }
 
 function CellDialog({
-  cat, factor, action, existing, onClose, onSave, onDelete, onApplyRow, onApplyColumn, busy,
+  orgId, cat, factor, action, existing, onClose, onSave, onDelete, onApplyRow, onApplyColumn, busy,
 }: {
+  orgId: string;
   cat: ImpactCatalog;
   factor: FactorRow;
   action: ActionRow;
@@ -93,6 +97,8 @@ function CellDialog({
     Object.fromEntries(ATTRS.map((k) => [k, existing?.attrs[k] ?? cat.options[k][0]?.value ?? 0])) as Attrs,
   );
   const faltan = ATTRS.filter((k) => cat.options[k].length === 0);
+  const { isAdmin } = useAuth();
+  const qc = useQueryClient();
   const imp = importance(sign, attrs);
   const categoria = categoryFor(imp, cat.categories);
   const pond = weighted(imp, factor.uip);
@@ -128,11 +134,23 @@ function CellDialog({
               <span className="text-muted-foreground">
                 {ATTR_LABEL[k]} <span className="font-mono">({k})</span>
               </span>
-              <NativeSelect value={attrs[k] ?? ""} onChange={(e) => setAttrs((a) => ({ ...a, [k]: Number(e.target.value) }))}>
+              <SelectAdd
+                value={attrs[k] ?? ""}
+                onValue={(v) => setAttrs((a) => ({ ...a, [k]: Number(v) }))}
+                canAdd={isAdmin}
+                fields={["Etiqueta", "Valor"]}
+                onAdd={async ([label, valor]) => {
+                  const value = Number(valor.replace(",", "."));
+                  if (!Number.isFinite(value)) throw new Error("El valor tiene que ser un número.");
+                  await createImpactAttr(orgId, { attr: k, label, value, sort_order: cat.options[k].length });
+                  await qc.invalidateQueries({ queryKey: ["impact-catalog", orgId] });
+                  return String(value);
+                }}
+              >
                 {cat.options[k].map((o) => (
                   <option key={o.label} value={o.value}>{o.label}</option>
                 ))}
-              </NativeSelect>
+              </SelectAdd>
             </label>
           ))}
         </div>
@@ -351,6 +369,7 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
       {open && openFactor && openAction && (
         <CellDialog
           key={`${open.factorId}|${open.actionId}`}
+          orgId={orgId}
           cat={cat}
           factor={openFactor}
           action={openAction}

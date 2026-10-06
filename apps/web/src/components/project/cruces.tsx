@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { CROSSING_DISTANCES, crossingDescription, defaultCode, type Crossing, type CrossingDistance } from "@/lib/cruces";
+import { SelectAdd } from "@/components/select-add";
+import { useAuth } from "@/lib/auth/auth-provider";
+import { addCode } from "@/lib/data/admin";
 import { listCodes } from "@/lib/data/catalogs";
 import { addCrossings, findCrossings } from "@/lib/data/cruces";
 import { errMsg } from "@/lib/data/util";
@@ -19,6 +22,7 @@ export function Cruces({ orgId, projectId }: { orgId: string; projectId: string 
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [codes, setCodes] = useState<Record<string, string>>({});
   const { data: catalog = [] } = useQuery({ queryKey: ["codes", orgId], queryFn: () => listCodes(orgId) });
+  const { isAdmin } = useAuth();
 
   const search = useMutation({
     mutationFn: () => findCrossings(projectId, dist),
@@ -82,14 +86,23 @@ export function Cruces({ orgId, projectId }: { orgId: string; projectId: string 
                     <span>{c.crosses ? <Badge>Cruza la obra</Badge> : <Badge variant="outline">Cercano</Badge>}</span>
                   </span>
                 </label>
-                <NativeSelect
-                  aria-label={`Sigla para ${c.featureName ?? c.layerName}`}
-                  value={codes[c.featureId] ?? ""}
-                  onChange={(e) => setCodes((s) => ({ ...s, [c.featureId]: e.target.value }))}
-                >
-                  <option value="">Sin sigla</option>
-                  {catalog.map((k) => <option key={k.code} value={k.code}>{k.code} · {k.meaning}</option>)}
-                </NativeSelect>
+                <span className="grid gap-2">
+                  <SelectAdd
+                    aria-label={`Sigla para ${c.featureName ?? c.layerName}`}
+                    value={codes[c.featureId] ?? ""}
+                    onValue={(v) => setCodes((s) => ({ ...s, [c.featureId]: v }))}
+                    canAdd={isAdmin}
+                    fields={["Sigla", "Significado"]}
+                    onAdd={async ([code, meaning]) => {
+                      await addCode(orgId, code, meaning, catalog.length);
+                      await qc.invalidateQueries({ queryKey: ["codes", orgId] });
+                      return code;
+                    }}
+                  >
+                    <option value="">Sin sigla</option>
+                    {catalog.map((k) => <option key={k.code} value={k.code}>{k.code} · {k.meaning}</option>)}
+                  </SelectAdd>
+                </span>
               </li>
             ))}
           </ul>

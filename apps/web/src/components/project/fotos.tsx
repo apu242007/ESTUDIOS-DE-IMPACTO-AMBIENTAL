@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
-import { listPhotoCategories } from "@/lib/data/catalogs";
+import { SelectAdd } from "@/components/select-add";
+import { useAuth } from "@/lib/auth/auth-provider";
+import { addPhotoCategory, listPhotoCategories } from "@/lib/data/catalogs";
 import { deletePhotoRemote, listPhotos, updatePhoto, type PhotoRow } from "@/lib/data/photos";
 import { errMsg } from "@/lib/data/util";
 
@@ -16,12 +17,16 @@ function Foto({
   cats,
   onCaption,
   onCategory,
+  canAdd,
+  onAddCat,
   onDelete,
 }: {
   p: PhotoRow;
   cats: { key: string; label: string }[];
   onCaption: (v: string | null) => void;
   onCategory: (k: string) => void;
+  canAdd: boolean;
+  onAddCat: (label: string) => Promise<string>;
   onDelete: () => void;
 }) {
   return (
@@ -48,14 +53,14 @@ function Foto({
         </label>
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">Categoría</span>
-          <NativeSelect value={p.category} onChange={(e) => onCategory(e.target.value)}>
+          <SelectAdd value={p.category} onValue={onCategory} canAdd={canAdd} onAdd={([label]) => onAddCat(label)}>
             {!cats.some((c) => c.key === p.category) && <option value={p.category}>{p.category}</option>}
             {cats.map((c) => (
               <option key={c.key} value={c.key}>
                 {c.label}
               </option>
             ))}
-          </NativeSelect>
+          </SelectAdd>
         </label>
         {p.heading && <p className="text-sm text-muted-foreground">Vistas: {p.heading}</p>}
         <Button
@@ -81,6 +86,12 @@ export function Fotos({ orgId, projectId }: { orgId: string; projectId: string }
     void qc.invalidateQueries({ queryKey: ["checklist", projectId] });
   };
   const fail = (e: unknown) => toast.error(errMsg(e));
+  const { isAdmin } = useAuth();
+  const addCat = async (label: string) => {
+    const k = await addPhotoCategory(orgId, label, cats.length);
+    await qc.invalidateQueries({ queryKey: ["photocats", orgId] });
+    return k;
+  };
 
   const upd = useMutation({
     mutationFn: (a: { id: string; patch: { caption?: string | null; category?: string } }) => updatePhoto(a.id, a.patch),
@@ -125,6 +136,8 @@ export function Fotos({ orgId, projectId }: { orgId: string; projectId: string }
                 cats={cats}
                 onCaption={(v) => upd.mutate({ id: p.id, patch: { caption: v } })}
                 onCategory={(k) => upd.mutate({ id: p.id, patch: { category: k } })}
+                canAdd={isAdmin}
+                onAddCat={addCat}
                 onDelete={() => del.mutate(p)}
               />
             ))}

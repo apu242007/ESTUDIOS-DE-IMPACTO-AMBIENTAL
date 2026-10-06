@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, LocateFixed } from "lucide-react";
 import { toast } from "sonner";
@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SelectAdd } from "@/components/select-add";
 import { workKindLabel, workKinds } from "@/lib/alcance-parser";
 import { useAuth } from "@/lib/auth/auth-provider";
-import { listCodes, listPhotoCategories } from "@/lib/data/catalogs";
+import { addCode } from "@/lib/data/admin";
+import { addPhotoCategory, listCodes, listPhotoCategories } from "@/lib/data/catalogs";
 import { errMsg } from "@/lib/data/util";
 import { listWorks } from "@/lib/data/works";
 import { formatDms } from "@/lib/geo/dms";
@@ -85,6 +87,8 @@ function WaypointCard({
   onDelete: () => void;
 }) {
   const photos = useLiveQuery(() => getDb().photos.where("waypointId").equals(wp.id).toArray(), [wp.id]) ?? [];
+  const { isAdmin } = useAuth();
+  const qc = useQueryClient();
   const file = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [locating, setLocating] = useState(false);
@@ -164,12 +168,23 @@ function WaypointCard({
           </div>
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Sigla</span>
-            <NativeSelect className="h-12" value={wp.code ?? ""} onChange={(e) => void saveWaypoint(wp.id, { code: e.target.value || null })}>
+            <SelectAdd
+              className="h-12"
+              value={wp.code ?? ""}
+              onValue={(v) => void saveWaypoint(wp.id, { code: v || null })}
+              canAdd={isAdmin}
+              fields={["Sigla", "Significado"]}
+              onAdd={async ([code, meaning]) => {
+                await addCode(orgId, code, meaning, codes.length);
+                await qc.invalidateQueries({ queryKey: ["codes", orgId] });
+                return code;
+              }}
+            >
               <option value="">—</option>
               {codes.map((c) => (
                 <option key={c.code} value={c.code}>{c.code} · {c.meaning}</option>
               ))}
-            </NativeSelect>
+            </SelectAdd>
           </label>
           <Txt label="Observaciones (opcional)" value={wp.description} onSave={(v) => void saveWaypoint(wp.id, { description: v })} />
         </div>
@@ -277,6 +292,8 @@ function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: stri
   const projectId = line.projectId;
   const waypoints = (useLiveQuery(() => getDb().waypoints.where("lineId").equals(line.id).toArray(), [line.id]) ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
   const prev = useLiveQuery(() => getDb().lines.where("projectId").equals(projectId).toArray(), [projectId]) ?? [];
+  const { isAdmin } = useAuth();
+  const qc = useQueryClient();
   const { data: codes = [] } = useQuery({ queryKey: ["codes", orgId], queryFn: () => listCodes(orgId) });
   const { data: cats = [] } = useQuery({ queryKey: ["photocats", orgId], queryFn: () => listPhotoCategories(orgId) });
   const { data: works = [] } = useQuery({ queryKey: ["works", projectId], queryFn: () => listWorks(projectId) });
@@ -309,10 +326,11 @@ function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: stri
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Tipo</span>
-            <NativeSelect className="h-12" value={line.kind ?? ""} onChange={(e) => save({ kind: e.target.value || null })}>
+            <SelectAdd className="h-12" value={line.kind ?? ""} onValue={(v) => save({ kind: v || null })} canAdd fields={["Tipo"]} onAdd={async ([v]) => v}>
               <option value="">—</option>
               {workKinds.map((k) => <option key={k} value={k}>{workKindLabel[k]}</option>)}
-            </NativeSelect>
+              {line.kind && !(workKinds as readonly string[]).includes(line.kind) && <option value={line.kind}>{line.kind}</option>}
+            </SelectAdd>
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Obra del alcance</span>
@@ -358,10 +376,20 @@ function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: stri
 
       <label className="grid max-w-md gap-1 text-sm">
         <span className="text-muted-foreground">Categoría de las fotos que saques</span>
-        <NativeSelect className="h-12" value={category} onChange={(e) => { setWanted(e.target.value); writeCat(e.target.value); }}>
+        <SelectAdd
+          className="h-12"
+          value={category}
+          onValue={(v) => { setWanted(v); writeCat(v); }}
+          canAdd={isAdmin}
+          onAdd={async ([label]) => {
+            const key = await addPhotoCategory(orgId, label, cats.length);
+            await qc.invalidateQueries({ queryKey: ["photocats", orgId] });
+            return key;
+          }}
+        >
           {cats.length === 0 && <option value="otro">Otros</option>}
           {cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-        </NativeSelect>
+        </SelectAdd>
       </label>
 
       {waypoints.map((w) => (

@@ -3,16 +3,18 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Field } from "@/components/field";
-import { listClients } from "@/lib/data/clients";
+import { SelectAdd } from "@/components/select-add";
+import { listClients, saveClient } from "@/lib/data/clients";
 import { listProjects, saveProject } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
 import {
+  clientFormSchema,
   docTypes,
   projectFormSchema,
   provinces,
@@ -30,6 +32,7 @@ export function ProjectForm({
   onDone: (id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
   const { data: clients = [] } = useQuery({
     queryKey: ["clients", orgId],
     queryFn: () => listClients(orgId),
@@ -44,6 +47,8 @@ export function ProjectForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -81,14 +86,26 @@ export function ProjectForm({
     <form onSubmit={onSubmit} className="grid gap-5" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Cliente *" error={errors.client_id?.message}>
-          <NativeSelect {...register("client_id")}>
+          <SelectAdd
+            value={watch("client_id")}
+            onValue={(v) => setValue("client_id", v, { shouldValidate: true })}
+            canAdd
+            fields={["Nombre del cliente"]}
+            onAdd={async ([name]) => {
+              const v = clientFormSchema.safeParse({ name, cuit: "", address: "", contact_nombre: "", contact_email: "", contact_telefono: "" });
+              if (!v.success) throw new Error(v.error.issues[0]?.message ?? "Nombre inválido");
+              const id = await saveClient(orgId, null, v.data, null);
+              await qc.invalidateQueries({ queryKey: ["clients", orgId] });
+              return id;
+            }}
+          >
             <option value="">Elegí un cliente…</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
-          </NativeSelect>
+          </SelectAdd>
         </Field>
         <Field label="Tipo de documento *" error={errors.doc_type?.message}>
           <NativeSelect {...register("doc_type")}>

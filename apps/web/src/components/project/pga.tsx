@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SelectAdd } from "@/components/select-add";
 import { listImpacts, loadImpactCatalog } from "@/lib/data/impacts";
 import { addMeasures, listMeasureLinks, listMeasures, listSelections, removeMeasures, updateSelection } from "@/lib/data/pga";
 import { errMsg } from "@/lib/data/util";
@@ -168,16 +169,16 @@ export function Pga({ orgId, project }: { orgId: string; project: ProjectRow }) 
                       <td className="px-3 py-2">{text(m)}</td>
                       <td className="px-3 py-2">{m.resource ?? "—"}</td>
                       <td className="px-3 py-2">
-                        <NativeSelect aria-label="Cronograma" className="h-11 w-48" value={s?.timing ?? m.timing ?? ""} onChange={(e) => upd.mutate({ id: m.id, patch: { timing: e.target.value || null } })}>
+                        <SelectAdd aria-label="Cronograma" className="h-11 w-48" value={s?.timing ?? m.timing ?? ""} onValue={(v) => upd.mutate({ id: m.id, patch: { timing: v || null } })} canAdd fields={["Cronograma"]} onAdd={async ([v]) => v}>
                           <option value="">—</option>
-                          {[...new Set([...(m.timing ? [m.timing] : []), ...opciones.timing])].map((o) => <option key={o} value={o}>{o}</option>)}
-                        </NativeSelect>
+                          {[...new Set([...(s?.timing ? [s.timing] : []), ...(m.timing ? [m.timing] : []), ...opciones.timing])].map((o) => <option key={o} value={o}>{o}</option>)}
+                        </SelectAdd>
                       </td>
                       <td className="px-3 py-2">
-                        <NativeSelect aria-label="Responsable" className="h-11 w-48" value={s?.responsible ?? m.responsible ?? ""} onChange={(e) => upd.mutate({ id: m.id, patch: { responsible: e.target.value || null } })}>
+                        <SelectAdd aria-label="Responsable" className="h-11 w-48" value={s?.responsible ?? m.responsible ?? ""} onValue={(v) => upd.mutate({ id: m.id, patch: { responsible: v || null } })} canAdd fields={["Responsable"]} onAdd={async ([v]) => v}>
                           <option value="">—</option>
-                          {[...new Set([...(m.responsible ? [m.responsible] : []), ...opciones.responsible])].map((o) => <option key={o} value={o}>{o}</option>)}
-                        </NativeSelect>
+                          {[...new Set([...(s?.responsible ? [s.responsible] : []), ...(m.responsible ? [m.responsible] : []), ...opciones.responsible])].map((o) => <option key={o} value={o}>{o}</option>)}
+                        </SelectAdd>
                       </td>
                       <td className="px-3 py-2">{m.follow_up ?? "—"}</td>
                     </tr>
