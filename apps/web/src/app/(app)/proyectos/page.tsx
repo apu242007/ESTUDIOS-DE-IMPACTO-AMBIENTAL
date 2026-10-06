@@ -128,7 +128,7 @@ export default function ProyectosPage() {
       />
 
       {/* Celular: tarjetas. La tabla de 6 columnas no entra en 360 px y dejaba "Abrir" fuera de la pantalla. */}
-      <ul className="grid gap-3 sm:hidden">
+      <ul aria-label="Proyectos" className="grid gap-3 sm:hidden">
         {isLoading && <li className="text-muted-foreground">Cargando…</li>}
         {!isLoading && rows.length === 0 && (
           <li className="py-6 text-center text-muted-foreground">

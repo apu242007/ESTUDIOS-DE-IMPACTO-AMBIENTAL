@@ -18,3 +18,12 @@ export type Direction = (typeof DIRECTIONS)[number];
 export const joinViews = (dirs: Direction[]): string | null => (dirs.length ? dirs.join("-") : null);
 export const splitViews = (v: string | null): Direction[] =>
   (v ?? "").split("-").filter((d): d is Direction => (DIRECTIONS as readonly string[]).includes(d));
+
+/**
+ * Categoría para las fotos nuevas: la última usada si sigue en el catálogo; si no, la primera del catálogo.
+ * Sin catálogo (primer uso sin conexión) conserva la recordada o cae en "otro".
+ */
+export function pickCategory(keys: readonly string[], remembered: string | null): string {
+  if (keys.length === 0) return remembered ?? "otro";
+  return remembered && keys.includes(remembered) ? remembered : keys[0];
+}

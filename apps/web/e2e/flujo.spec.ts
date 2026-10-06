@@ -25,6 +25,28 @@ test.describe("proyecto de prueba", () => {
     expect(desborda).toBe(false);
   });
 
+  test("en el celular la lista de proyectos son tarjetas y no desborda a 360 px", async ({ page }) => {
+    await login(page);
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto("/proyectos/");
+    await expect(page.getByRole("list", { name: "Proyectos" }).getByRole("link", { name: /ZZ e2e proyecto/ }).first()).toBeVisible();
+    const desborda = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    expect(desborda).toBe(false);
+  });
+
+  test("relevamiento a 360 px: la ficha muestra lo pendiente y el waypoint nuevo queda a la vista", async ({ page }) => {
+    await login(page);
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto(seccion(p.id, "relevamiento"));
+    await page.getByRole("button", { name: "Nueva ficha" }).click();
+    await expect(page.getByRole("heading", { name: /Ficha N°/ })).toBeVisible();
+    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Agregar waypoint" }).click();
+    await expect(page.getByRole("button", { name: /^Quitar waypoint/ })).toHaveCount(3);
+    await expect(page.getByRole("button", { name: /^Quitar waypoint/ }).last()).toBeInViewport();
+    const desborda = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    expect(desborda).toBe(false);
+  });
+
   test("una celda de la matriz se completa solo con clics y da −21 (valor real del Excel)", async ({ page }) => {
     await login(page);
     await page.goto(seccion(p.id, "impactos"));

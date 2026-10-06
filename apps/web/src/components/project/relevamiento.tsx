@@ -17,7 +17,7 @@ import { errMsg } from "@/lib/data/util";
 import { listWorks } from "@/lib/data/works";
 import { formatDms } from "@/lib/geo/dms";
 import { getDb, type LineRec, type WaypointRec } from "@/lib/offline/db";
-import { DIRECTIONS, compressPhoto, joinViews, splitViews } from "@/lib/offline/photos";
+import { DIRECTIONS, compressPhoto, joinViews, pickCategory, splitViews } from "@/lib/offline/photos";
 import { supabaseRemote } from "@/lib/offline/remote";
 import { addPhoto, addWaypoint, createLine, deleteLine, deletePhoto, deleteWaypoint, saveLine, saveWaypoint } from "@/lib/offline/repo";
 import { syncOutbox } from "@/lib/offline/sync";
@@ -56,22 +56,18 @@ function Thumb({ blob, uploaded, onRemove }: { blob: Blob; uploaded: boolean; on
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [blob]);
+  // tocar la miniatura no hace nada: con guantes es fácil rozarla; quitar va en su propio botón
   return (
-    // botón (no <img> con onClick): se alcanza con teclado y el lector anuncia qué hace
-    <button
-      type="button"
-      onClick={onRemove}
-      aria-label={uploaded ? "Quitar foto" : "Quitar foto (todavía sin subir)"}
-      className="relative size-20 cursor-pointer overflow-hidden rounded-md border"
-    >
+    <figure className="grid w-24 gap-1">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt="" className="size-full object-cover" />
-      {!uploaded && (
-        <span aria-hidden="true" className="absolute inset-x-0 bottom-0 bg-jarilla px-1 text-xs font-semibold text-basalto">
-          sin subir
-        </span>
-      )}
-    </button>
+      <img src={url} alt="" className="size-24 rounded-md border object-cover" />
+      <figcaption className={`text-center text-xs font-semibold ${uploaded ? "text-ok" : "text-warn"}`}>
+        {uploaded ? "Subida" : "Sin subir"}
+      </figcaption>
+      <Button type="button" variant="outline" className="h-11 w-full" aria-label={uploaded ? "Quitar foto" : "Quitar foto (todavía sin subir)"} onClick={onRemove}>
+        Quitar
+      </Button>
+    </figure>
   );
 }
 
@@ -118,24 +114,54 @@ function WaypointCard({
     );
   };
 
+  // comprimir tarda: se muestra el avance y se bloquea el botón para que un doble toque no duplique fotos
+  const [processing, setProcessing] = useState<{ i: number; n: number } | null>(null);
   const onPhotos = async (files: FileList | null) => {
-    for (const f of Array.from(files ?? [])) {
-      try {
-        const blob = await compressPhoto(f);
-        await addPhoto({ orgId, projectId: wp.projectId, lineId: wp.lineId, waypointId: wp.id, category, caption: null, heading: wp.views, blob });
-      } catch (e) {
-        toast.error(errMsg(e));
+    const list = Array.from(files ?? []);
+    try {
+      for (const [i, f] of list.entries()) {
+        setProcessing({ i: i + 1, n: list.length });
+        try {
+          const blob = await compressPhoto(f);
+          await addPhoto({ orgId, projectId: wp.projectId, lineId: wp.lineId, waypointId: wp.id, category, caption: null, heading: wp.views, blob });
+        } catch (e) {
+          toast.error(errMsg(e));
+        }
       }
+    } finally {
+      setProcessing(null);
     }
   };
 
+  const setNumber = (n: number | null) => void saveWaypoint(wp.id, { number: n === null ? null : Math.max(0, n) });
   const dms = wp.lat !== null && wp.lon !== null ? formatDms(wp.lat, wp.lon) : null;
 
   return (
     <Card ref={card}>
       <CardContent className="grid gap-3 pt-4">
-        <div className="grid gap-3 sm:grid-cols-[6rem_1fr_2fr]">
-          <Txt label="N° waypoint" type="number" inputMode="numeric" value={wp.number} onSave={(v) => void saveWaypoint(wp.id, { number: v === null ? null : Number(v) })} />
+        <div className="grid gap-3 sm:grid-cols-[13rem_1fr_2fr]">
+          <div className="grid gap-1 text-sm">
+            <span className="text-muted-foreground" id={`wpn-${wp.id}`}>N° waypoint</span>
+            {/* −/+ para no abrir el teclado: el N° casi siempre es el anterior + 1 */}
+            <div className="flex gap-1" role="group" aria-labelledby={`wpn-${wp.id}`}>
+              <Button type="button" variant="outline" className="size-12 text-lg" aria-label="Restar uno" onClick={() => setNumber((wp.number ?? 1) - 1)}>−</Button>
+              <Input
+                key={String(wp.number ?? "")}
+                className="h-12 w-20 text-center tnum"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                aria-labelledby={`wpn-${wp.id}`}
+                defaultValue={wp.number ?? ""}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v === "") return setNumber(null);
+                  if (!/^\d+$/.test(v)) { e.target.value = String(wp.number ?? ""); return toast.error("El N° de waypoint es un número entero."); }
+                  if (Number(v) !== wp.number) setNumber(Number(v));
+                }}
+              />
+              <Button type="button" variant="outline" className="size-12 text-lg" aria-label="Sumar uno" onClick={() => setNumber((wp.number ?? 0) + 1)}>+</Button>
+            </div>
+          </div>
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Sigla</span>
             <NativeSelect className="h-12" value={wp.code ?? ""} onChange={(e) => void saveWaypoint(wp.id, { code: e.target.value || null })}>
@@ -169,42 +195,99 @@ function WaypointCard({
         <div className="flex flex-wrap items-center gap-2">
           <input ref={file} type="file" accept="image/*" capture="environment" multiple hidden
             onChange={(e) => { void onPhotos(e.target.files); e.target.value = ""; }} />
-          <Button className="h-12" onClick={() => file.current?.click()}>Sacar foto</Button>
+          <Button className="h-12" disabled={processing !== null} onClick={() => file.current?.click()}>
+            {processing ? `Procesando ${processing.i} de ${processing.n}…` : "Sacar foto"}
+          </Button>
           <Button variant="outline" className="h-12" disabled={locating} onClick={locate}>
             <LocateFixed aria-hidden="true" />
             {locating ? "Buscando posición…" : dms ? "Volver a tomar posición" : "Tomar posición"}
           </Button>
-          <Button variant="outline" className="h-12" onClick={() => { if (window.confirm(`¿Quitar el waypoint ${wp.number ?? ""}?`)) onDelete(); }}>Quitar</Button>
         </div>
         {dms && (
           <p className="tnum font-mono text-sm text-muted-foreground">
             {dms.lat} · {dms.lon}
+            {wp.elevationM !== null && ` · ${Math.round(wp.elevationM)} m`}
           </p>
         )}
         {photos.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {photos.map((p) => (
               <Thumb key={p.id} blob={p.blob} uploaded={p.uploaded} onRemove={() => { if (window.confirm("¿Quitar esta foto?")) void deletePhoto(p.id); }} />
             ))}
           </div>
         )}
+        {/* quitar va aparte, al pie y en rojo: lejos de "Sacar foto" y "Tomar posición", que se tocan a cada rato */}
+        <div className="border-t pt-3">
+          <Button
+            variant="destructive"
+            className="h-12"
+            onClick={() => { if (window.confirm(`¿Quitar el waypoint ${wp.number ?? ""} con sus fotos?`)) onDelete(); }}
+          >
+            Quitar waypoint {wp.number ?? ""}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function FichaEditor({ line, orgId, onBack }: { line: LineRec; orgId: string; onBack: () => void }) {
+type SyncState = { pending: number; online: boolean; busy: boolean; onSync: () => void };
+
+/** Estado de subida visible en la lista y dentro de la ficha (en el campo se mira sin salir de la ficha). */
+function SyncStrip({ pending, online, busy, onSync }: SyncState) {
+  const msg = !online
+    ? `Sin conexión. ${pending} ${pending === 1 ? "cambio guardado" : "cambios guardados"} en este dispositivo, sin subir.`
+    : busy
+      ? "Subiendo cambios…"
+      : pending > 0
+        ? `${pending} ${pending === 1 ? "cambio guardado" : "cambios guardados"} en este dispositivo, sin subir.`
+        : "Todo subido.";
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted px-3 py-2">
+      <p role="status" aria-live="polite" className={`text-sm font-medium ${pending > 0 ? "text-warn" : "text-ok"}`}>{msg}</p>
+      {pending > 0 && (
+        <Button variant="outline" className="h-12" disabled={busy || !online} onClick={onSync}>Sincronizar ahora</Button>
+      )}
+    </div>
+  );
+}
+
+/** Hasta 4 valores ya usados en este proyecto, para cargar con un toque en vez de escribir. */
+function Recientes({ values, current, onPick }: { values: string[]; current: string | null; onPick: (v: string) => void }) {
+  const shown = values.filter((v) => v !== current).slice(0, 4);
+  if (shown.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {shown.map((v) => (
+        <Button key={v} type="button" variant="outline" className="h-11 max-w-full truncate" onClick={() => onPick(v)}>{v}</Button>
+      ))}
+    </div>
+  );
+}
+
+const CAT_KEY = "eia.relevamiento.categoriaFoto";
+function readCat(): string | null {
+  try { return localStorage.getItem(CAT_KEY); } catch { return null; }
+}
+function writeCat(v: string) {
+  try { localStorage.setItem(CAT_KEY, v); } catch { /* sin almacenamiento: solo no se recuerda */ }
+}
+
+function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: string; onBack: () => void; sync: SyncState }) {
   const projectId = line.projectId;
   const waypoints = (useLiveQuery(() => getDb().waypoints.where("lineId").equals(line.id).toArray(), [line.id]) ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
   const prev = useLiveQuery(() => getDb().lines.where("projectId").equals(projectId).toArray(), [projectId]) ?? [];
   const { data: codes = [] } = useQuery({ queryKey: ["codes", orgId], queryFn: () => listCodes(orgId) });
   const { data: cats = [] } = useQuery({ queryKey: ["photocats", orgId], queryFn: () => listPhotoCategories(orgId) });
   const { data: works = [] } = useQuery({ queryKey: ["works", projectId], queryFn: () => listWorks(projectId) });
-  const [category, setCategory] = useState("otro");
+  // "usar el último": la categoría elegida se recuerda en el teléfono; nunca queda una que el desplegable no muestre
+  const [wanted, setWanted] = useState<string | null>(readCat);
+  const category = pickCategory(cats.map((c) => c.key), wanted);
   const [nuevo, setNuevo] = useState<string | null>(null);
 
-  const uniq = (pick: (l: LineRec) => string | null) => [...new Set(prev.map(pick).filter((v): v is string => !!v))];
+  const uniq = (pick: (l: LineRec) => (string | null)[]) => [...new Set(prev.filter((l) => l.id !== line.id).flatMap(pick).filter((v): v is string => !!v))];
   const save = (patch: Parameters<typeof saveLine>[1]) => void saveLine(line.id, patch);
+  const puntos = uniq((l) => [l.startLabel, l.endLabel]); // Inicio y Fin comparten lista: el fin de una ficha suele ser el inicio de otra
 
   return (
     <div className="grid gap-4">
@@ -238,28 +321,44 @@ function FichaEditor({ line, orgId, onBack }: { line: LineRec; orgId: string; on
               {works.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </NativeSelect>
           </label>
-          <Txt label="Inicio" value={line.startLabel} onSave={(v) => save({ startLabel: v })} />
-          <Txt label="Fin" value={line.endLabel} onSave={(v) => save({ endLabel: v })} />
-          <Txt label="N° de ficha" type="number" inputMode="numeric" value={line.fichaNo} onSave={(v) => save({ fichaNo: v === null ? null : Number(v) })} />
-          <Txt label="N° de trabajo" value={line.jobNo} list="dl-job" onSave={(v) => save({ jobNo: v })} />
-          <Txt label="Fecha" type="date" value={line.surveyDate} onSave={(v) => save({ surveyDate: v })} />
-          <Txt label="Empresa" value={line.company} list="dl-company" onSave={(v) => save({ company: v })} />
-          <Txt label="Dominantes" value={line.dominant} list="dl-dominant" onSave={(v) => save({ dominant: v })} />
-          <Txt label="Cobertura" value={line.cover} list="dl-cover" onSave={(v) => save({ cover: v })} />
-          <div className="sm:col-span-2">
-            <Txt label="Acompañantes" value={line.companions} list="dl-comp" onSave={(v) => save({ companions: v })} />
+          <div className="grid gap-2">
+            <Txt label="Inicio" value={line.startLabel} onSave={(v) => save({ startLabel: v })} />
+            <Recientes values={puntos} current={line.startLabel} onPick={(v) => save({ startLabel: v })} />
           </div>
-          <datalist id="dl-job">{uniq((l) => l.jobNo).map((v) => <option key={v} value={v} />)}</datalist>
-          <datalist id="dl-company">{uniq((l) => l.company).map((v) => <option key={v} value={v} />)}</datalist>
-          <datalist id="dl-dominant">{uniq((l) => l.dominant).map((v) => <option key={v} value={v} />)}</datalist>
-          <datalist id="dl-cover">{uniq((l) => l.cover).map((v) => <option key={v} value={v} />)}</datalist>
-          <datalist id="dl-comp">{uniq((l) => l.companions).map((v) => <option key={v} value={v} />)}</datalist>
+          <div className="grid gap-2">
+            <Txt label="Fin" value={line.endLabel} onSave={(v) => save({ endLabel: v })} />
+            <Recientes values={puntos} current={line.endLabel} onPick={(v) => save({ endLabel: v })} />
+          </div>
+          <Txt label="N° de ficha" type="number" inputMode="numeric" value={line.fichaNo} onSave={(v) => save({ fichaNo: v === null ? null : Number(v) })} />
+          <div className="grid gap-2">
+            <Txt label="N° de trabajo" value={line.jobNo} onSave={(v) => save({ jobNo: v })} />
+            <Recientes values={uniq((l) => [l.jobNo])} current={line.jobNo} onPick={(v) => save({ jobNo: v })} />
+          </div>
+          <Txt label="Fecha" type="date" value={line.surveyDate} onSave={(v) => save({ surveyDate: v })} />
+          <div className="grid gap-2">
+            <Txt label="Empresa" value={line.company} onSave={(v) => save({ company: v })} />
+            <Recientes values={uniq((l) => [l.company])} current={line.company} onPick={(v) => save({ company: v })} />
+          </div>
+          <div className="grid gap-2">
+            <Txt label="Dominantes" value={line.dominant} onSave={(v) => save({ dominant: v })} />
+            <Recientes values={uniq((l) => [l.dominant])} current={line.dominant} onPick={(v) => save({ dominant: v })} />
+          </div>
+          <div className="grid gap-2">
+            <Txt label="Cobertura" value={line.cover} onSave={(v) => save({ cover: v })} />
+            <Recientes values={uniq((l) => [l.cover])} current={line.cover} onPick={(v) => save({ cover: v })} />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Txt label="Acompañantes" value={line.companions} onSave={(v) => save({ companions: v })} />
+            <Recientes values={uniq((l) => [l.companions])} current={line.companions} onPick={(v) => save({ companions: v })} />
+          </div>
         </CardContent>
       </Card>
 
+      <SyncStrip {...sync} />
+
       <label className="grid max-w-md gap-1 text-sm">
         <span className="text-muted-foreground">Categoría de las fotos que saques</span>
-        <NativeSelect className="h-12" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <NativeSelect className="h-12" value={category} onChange={(e) => { setWanted(e.target.value); writeCat(e.target.value); }}>
           {cats.length === 0 && <option value="otro">Otros</option>}
           {cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </NativeSelect>
@@ -321,8 +420,9 @@ export function Relevamiento({ orgId, projectId }: { orgId: string; projectId: s
     if (online && !sinSesion) void sync();
   }, [online, sinSesion, sync]);
 
+  const syncState: SyncState = { pending, online, busy, onSync: () => void sync() };
   const open = lines.find((l) => l.id === openId);
-  if (open) return <FichaEditor line={open} orgId={orgId} onBack={() => setOpenId(null)} />;
+  if (open) return <FichaEditor line={open} orgId={orgId} onBack={() => setOpenId(null)} sync={syncState} />;
 
   return (
     <div className="grid gap-4">
@@ -330,11 +430,8 @@ export function Relevamiento({ orgId, projectId }: { orgId: string; projectId: s
         <Button size="lg" className="h-14 text-base" onClick={() => void createLine(projectId).then((l) => setOpenId(l.id))}>
           Nueva ficha
         </Button>
-        <Button size="lg" variant="outline" className="h-14 text-base" disabled={busy || !online || pending === 0} onClick={() => void sync()}>
-          {busy ? "Sincronizando…" : `Sincronizar (${pending})`}
-        </Button>
-        <Badge variant={online ? "secondary" : "destructive"}>{online ? "Con conexión" : "Sin conexión"}</Badge>
       </div>
+      <SyncStrip {...syncState} />
       <p className="text-sm text-muted-foreground">
         Todo se guarda en este dispositivo y se sube solo cuando hay conexión. Lo pendiente no se pierde aunque cierres la página.
       </p>
