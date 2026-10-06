@@ -22,7 +22,7 @@ export async function cached<T>(
   key: string,
   schema: z.ZodType<T>,
   fetcher: () => Promise<unknown[]>,
-  fallback: (e: unknown) => boolean = () => true,
+  fallback: (e: unknown) => boolean = isNetworkError,
 ): Promise<T[]> {
   const db = getDb();
   // Sin red ni se intenta: cada consulta reintenta con espera (1 s, 2 s, 4 s) y la pantalla quedaba "Cargando…".

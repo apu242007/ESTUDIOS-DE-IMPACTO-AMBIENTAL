@@ -46,6 +46,13 @@ describe("cached", () => {
       cached(key, row, () => Promise.reject(new Error("permission denied")), isNetworkError),
     ).rejects.toThrow("permission denied");
   });
+  it("sin fallback explícito, un error que no es de red tampoco se tapa con la copia", async () => {
+    // catálogos, lista de proyectos y obras llaman a cached() sin fallback
+    const key = `k-${Math.random()}`;
+    await cached(key, row, async () => [{ id: "a" }]);
+    await expect(cached(key, row, () => Promise.reject(new Error("permission denied")))).rejects.toThrow("permission denied");
+    expect(await cached(key, row, () => Promise.reject(new Error("TypeError: Failed to fetch")))).toEqual([{ id: "a" }]);
+  });
   it("datos con formato inválido no se guardan ni pisan la copia", async () => {
     const key = `k-${Math.random()}`;
     await cached(key, row, async () => [{ id: "a" }], isNetworkError);
