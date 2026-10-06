@@ -8,7 +8,7 @@ from pyproj.exceptions import CRSError
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform
 
-DEFAULT_PROJECT_EPSG = 22182  # POSGAR 2007 / Argentina 2 (faja 2)
+DEFAULT_PROJECT_EPSG = 22182  # POSGAR 94 / Argentina 2 (faja 2)
 WGS84 = 4326
 
 
