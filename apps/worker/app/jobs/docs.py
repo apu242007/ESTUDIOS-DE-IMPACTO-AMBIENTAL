@@ -399,13 +399,25 @@ def find_soffice() -> str | None:
     return None
 
 
+# Sin esto LibreOffice reexporta las fotos a calidad 90 y el PDF de un informe con 300 fotos supera el límite de Storage.
+PDF_FILTER = ('pdf:writer_pdf_Export:{"ReduceImageResolution":{"type":"boolean","value":"true"},'
+              '"MaxImageResolution":{"type":"long","value":"150"},"Quality":{"type":"long","value":"75"}}')
+MAX_UPLOAD = 50 * 1024 * 1024  # límite por archivo de Storage del plan
+
+
+def _check_size(name: str, data: bytes) -> None:
+    if len(data) > MAX_UPLOAD:
+        raise ValueError(f"El {name} pesa {len(data) / 1048576:.0f} MB y el máximo es {MAX_UPLOAD // 1048576} MB: "
+                         "generá de nuevo con fotos más chicas o menor calidad.")
+
+
 def docx_to_pdf(docx: Path, run: Runner = subprocess.run, exe: str | None = None) -> Path:
     """`soffice --headless --convert-to pdf`. Lanza RuntimeError con un mensaje legible si no se puede."""
     exe = exe or find_soffice()
     if not exe:
         raise RuntimeError("LibreOffice no está instalado en la PC del worker: se entrega solo el DOCX.")
     try:
-        r = run([exe, "--headless", "--convert-to", "pdf", "--outdir", str(docx.parent), str(docx)],
+        r = run([exe, "--headless", "--convert-to", PDF_FILTER, "--outdir", str(docx.parent), str(docx)],
                 capture_output=True, text=True, timeout=180)
     except subprocess.TimeoutExpired as e:
         raise RuntimeError("LibreOffice tardó demasiado en convertir a PDF.") from e
@@ -620,11 +632,14 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             try:
                 pdf = docx_to_pdf(docx, run)
                 pdf_bytes = pdf.read_bytes()
+                _check_size("PDF", pdf_bytes)
                 client.storage.from_(BUCKET).upload(f"{base}/informe.pdf", pdf_bytes,
                                                     {"content-type": "application/pdf", "upsert": "true"})
                 pdf_path = f"{base}/informe.pdf"
-            except RuntimeError as e:
+            except (RuntimeError, ValueError) as e:  # sin PDF igual se entrega el DOCX
                 log.append(str(e))
+                pdf_bytes = None
+        _check_size("DOCX", docx_bytes)
         client.storage.from_(BUCKET).upload(
             f"{base}/informe.docx", docx_bytes,
             {"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "upsert": "true"})

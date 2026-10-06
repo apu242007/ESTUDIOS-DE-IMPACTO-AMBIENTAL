@@ -141,7 +141,7 @@ def test_pdf_arma_el_comando(tmp_path: Path) -> None:
     (tmp_path / "informe.docx").write_bytes(b"x")
     pdf = docx_to_pdf(tmp_path / "informe.docx", run, exe="soffice")
     assert pdf.name == "informe.pdf"
-    assert visto["cmd"][:4] == ["soffice", "--headless", "--convert-to", "pdf"]
+    assert visto["cmd"][:3] == ["soffice", "--headless", "--convert-to"] and visto["cmd"][3].startswith("pdf:writer_pdf_Export:")
 
 
 # --- job completo con un cliente falso
