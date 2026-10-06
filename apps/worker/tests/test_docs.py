@@ -1,5 +1,6 @@
 import datetime as dt
 import io
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -311,3 +312,19 @@ def test_proyecto_inexistente_no_lanza() -> None:
     c = FakeClient(t, {})
     run_docs_job(c, job())
     assert c.updates[-1]["status"] == "error"
+
+
+def test_job_achica_fotos_si_el_docx_supera_el_limite(monkeypatch: pytest.MonkeyPatch) -> None:
+    sin_soffice(monkeypatch)
+    buf = io.BytesIO()
+    Image.frombytes("RGB", (1600, 1200), os.urandom(1600 * 1200 * 3)).save(buf, "JPEG", quality=95)  # ruido: no comprime
+    files = {"o/p/photos/f1.jpg": buf.getvalue()}
+    c = FakeClient(base_tables(), files)
+    run_docs_job(c, job())
+    tamano = len(c.uploads["o/p/docs/b1/informe.docx"])
+    monkeypatch.setattr(docs, "MAX_UPLOAD", tamano - 1)  # con las fotos a 800 px ya no entra
+    c = FakeClient(base_tables(), files)
+    run_docs_job(c, job())
+    up = c.updates[-1]
+    assert up["status"] == "listo" and "fotos reducidas a 640 px" in up["log"]
+    assert len(c.uploads["o/p/docs/b1/informe.docx"]) < tamano

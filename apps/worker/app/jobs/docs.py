@@ -537,7 +537,8 @@ def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: 
         try:
             raw = client.storage.from_(BUCKET).download(_own_path(ctx, ph["path_original"]))
             out.append({"category": ph["category"], "label": label.get(ph["category"], ph["category"]),
-                        "caption": ph.get("caption"), "jpeg": prepare_photo(raw, params["photo_max_px"], params["jpeg_quality"])})
+                        "caption": ph.get("caption"), "raw": raw,
+                        "jpeg": prepare_photo(raw, params["photo_max_px"], params["jpeg_quality"])})
         except Exception as e:  # en borrador se informa; la versión final falla después de reunir todas las omisiones
             message = f"Foto omitida ({ph['path_original']}): {e}"
             log.append(message)
@@ -619,9 +620,18 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             trow = client.table("document_templates").select("file_path").eq("id", job["template_id"]).limit(1).execute().data
             if not trow:
                 raise ValueError("La plantilla elegida ya no existe.")
-            docx_bytes = render_with_template(client.storage.from_(BUCKET).download(_own_path(ctx, trow[0]["file_path"])), ctx, photos)
+            tpl_bytes = client.storage.from_(BUCKET).download(_own_path(ctx, trow[0]["file_path"]))
+            render = lambda: render_with_template(tpl_bytes, ctx, photos)  # noqa: E731
         else:
-            docx_bytes = build_docx(ctx, photos)
+            render = lambda: build_docx(ctx, photos)  # noqa: E731
+        docx_bytes = render()
+        px, q = params["photo_max_px"], params["jpeg_quality"]
+        while len(docx_bytes) > MAX_UPLOAD and px > 600:  # achicar fotos hasta que el DOCX entre en Storage
+            px, q = int(px * 0.8), max(50, q - 10)
+            for ph in photos:
+                ph["jpeg"] = prepare_photo(ph["raw"], px, q)
+            docx_bytes = render()
+            log.append(f"El DOCX superaba {MAX_UPLOAD // 1048576} MB: fotos reducidas a {px} px, calidad {q}.")
 
         base = f"{job['org_id']}/{job['project_id']}/docs/{job['id']}"
         pdf_path: str | None = None
