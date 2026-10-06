@@ -69,7 +69,8 @@ def read_blocks(path: Path) -> list[Block]:
                 cells = []
                 for i, tc in enumerate(tr.findall(W + "tc")):
                     vm = tc.find(f"{W}tcPr/{W}vMerge")
-                    t = _text(tc)
+                    # varios párrafos en una celda = varios ítems: separarlos (pegados quedaba "perforaciónTransporte")
+                    t = "; ".join(x for x in (_text(q) for q in tc.findall(W + "p")) if x)
                     # celda combinada en vertical: hereda el valor de la fila de arriba
                     if vm is not None and vm.get(W + "val") != "restart" and not t and i < len(carry):
                         t = carry[i]

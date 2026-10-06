@@ -59,6 +59,7 @@ export function ProjectForm({
       short_name: project?.short_name ?? "",
       doc_type: project?.doc_type ?? "IA",
       field_area: project?.field_area ?? "",
+      report_date: project?.report_date ?? "",
       province: project?.province ?? "Neuquén",
       applicant_razon_social: project?.applicant.razon_social ?? "",
       applicant_cuit: project?.applicant.cuit ?? "",
@@ -124,6 +125,9 @@ export function ProjectForm({
         </Field>
         <Field label="Nombre corto (ej. PAD 58)" error={errors.short_name?.message}>
           <Input className="h-11" placeholder="PAD 58" {...register("short_name")} />
+        </Field>
+        <Field label="Fecha del informe (carátula; vacía = la de generación)" error={errors.report_date?.message}>
+          <Input className="h-11" type="date" {...register("report_date")} />
         </Field>
         <Field label="Yacimiento / área" error={errors.field_area?.message}>
           <Input className="h-11" list="areas" {...register("field_area")} />

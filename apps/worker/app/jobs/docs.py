@@ -65,31 +65,54 @@ def render_template(tpl: str, vars: dict[str, Any]) -> str:
     return re.sub(r"\s{2,}", " ", out).strip()
 
 
-def build_interferencias(waypoints: list[dict[str, Any]], codes: dict[str, str], fichas: dict[str, int | None],
+# Un quiebre (Q) es un cambio de rumbo de la traza, no una interferencia: no va a la tabla del cliente.
+NO_INTERFERENCIA = {"Q"}
+PUNTO_DE_INTERES = re.compile(r"^\s*(inicio|fin|finalizaci[oó]n|acometida|empalme)\b", re.I)
+
+
+def expand_codes(text: str, codes: dict[str, str]) -> str:
+    """Siglas de la planilla a texto: "CR con CP - CaC" → "Cruce con camino principal - caño camisa".
+    Solo siglas de 2+ letras: las de una (O, D, C…) son ambiguas con rumbos y palabras."""
+    def sub(m: re.Match[str]) -> str:
+        meaning = codes.get(m.group(0))
+        if not meaning:
+            return m.group(0)
+        return meaning if m.start() == 0 else meaning[:1].lower() + meaning[1:]
+    return re.sub(r"\b[A-Z][A-Za-z]{1,2}\b", sub, text)
+
+
+def build_interferencias(waypoints: list[dict[str, Any]], codes: dict[str, str],
+                         fichas: dict[str, int | None | tuple[int | None, str | None]],
                          template: str | None = None) -> tuple[list[dict[str, Any]], int]:
-    """Filas (Figura, Lat, Lon, X, Y, Cota, Descripción) de los waypoints con posición, y cuántos quedaron sin ella."""
+    """Filas (Figura, Lat, Lon, X, Y, Cota, Descripción) de las interferencias y puntos de interés con posición,
+    agrupadas por traza (ficha), y cuántas quedaron sin posición. Los quiebres y renglones sin sigla
+    (salvo inicio/fin) son notas de campo y no van al informe."""
     rows: list[dict[str, Any]] = []
     sin = 0
     for w in waypoints:
+        code = (w.get("code") or "").strip()
+        obs = (w.get("description") or "").strip()
+        if code in NO_INTERFERENCIA or (not code and obs and not PUNTO_DE_INTERES.match(obs)):
+            continue
         lat, lon = w.get("lat"), w.get("lon")
         if lat is None or lon is None:
             sin += 1
             continue
-        figura = codes.get(w.get("code") or "") or DEFAULT_FIGURA
+        figura = codes.get(code) or DEFAULT_FIGURA
         x, y = to_gauss_kruger(lat, lon)
         dlat, dlon = format_dms(lat, lon)
-        obs = (w.get("description") or "").strip()
         if template:
             desc = render_template(template, {"figura": figura, "sigla": w.get("code"), "numero": w.get("number"),
                                               "vistas": w.get("views"), "observaciones": w.get("description")})
-        else:
-            desc = f"{figura}: {obs}" if obs else figura
-            if w.get("views"):
-                desc += f" (vistas: {w['views']})"
+        else:  # las vistas son de las fotos (anexo fotográfico), no de la interferencia
+            texto = expand_codes(obs, codes)
+            desc = texto if (code and obs.startswith(code)) or not code and texto else (f"{figura}: {texto}" if texto else figura)
         ele = w.get("elevation_m")
+        f = fichas.get(w.get("line_id"))
+        ficha, traza = f if isinstance(f, tuple) else (f, None)
         rows.append({"figura": figura, "lat": dlat, "lon": dlon, "x": round(x), "y": round(y),
                      "cota": None if ele is None else round(ele), "descripcion": desc,
-                     "_lat": lat, "_lon": lon, "_ele": ele, "_ficha": fichas.get(w.get("line_id")) or 0, "_num": w.get("number") or 0})
+                     "_lat": lat, "_lon": lon, "_ele": ele, "_ficha": ficha or 0, "_traza": traza, "_num": w.get("number") or 0})
     rows.sort(key=lambda r: (r["_ficha"], r["_num"]))
     return rows, sin
 
@@ -157,9 +180,21 @@ def _pending(doc: Any, text: str) -> None:
     run.font.color.rgb = RGBColor(0x8A, 0x5A, 0x00)
 
 
-def _page_number_footer(section: Any) -> None:
+def report_date(p: dict[str, Any]) -> dt.date:
+    """Fecha de la carátula: la que cargó el profesional en Datos o, si no hay, la de generación."""
+    try:
+        return dt.date.fromisoformat(p["report_date"]) if p.get("report_date") else dt.date.today()
+    except ValueError:
+        return dt.date.today()
+
+
+def _page_number_footer(section: Any, label: str | None = None) -> None:
+    """Pie como el IA: "Trabajo Nº 2947-26. IA … – Cliente" y el número de página."""
     p = section.footer.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if label:
+        lr = p.add_run(f"{label}  ")
+        lr.font.size = Pt(8)
     run = p.add_run()
     for kind, text in (("begin", None), (None, "PAGE"), ("end", None)):
         if kind:
@@ -193,15 +228,11 @@ def _draft_header(section: Any) -> None:
 def _add_alcance(doc: Any, ctx: dict[str, Any]) -> None:
     doc.add_heading("Alcance de obras", level=2)
     if ctx["works"]:
-        _table(doc, ["Obra", "Tipo", "Declarado", "Medido en el relevamiento"], [
+        # lo medido vs. declarado es control interno (pantalla Comparación): al cliente va solo lo declarado
+        _table(doc, ["Obra", "Tipo", "Dimensión"], [
             [w["name"], KIND_LABEL.get(w["kind"], w["kind"]),
              _fmt_m(w.get("declared_length_m"), "m") if w.get("declared_length_m") is not None
-             else _fmt_m(w.get("declared_area_m2"), "m²"),
-             _fmt_m(w.get("geom_length_m"), "m") if w.get("geom_length_m") is not None
-             else _fmt_m(w.get("geom_area_m2"), "m²")] for w in ctx["works"]], [6, 3.5, 3, 3.5])
-        sin_geom = sum(1 for w in ctx["works"] if w.get("geom_length_m") is None and w.get("geom_area_m2") is None)
-        if sin_geom:
-            _pending(doc, f"{sin_geom} obra(s) todavía sin geometría medida.")
+             else _fmt_m(w.get("declared_area_m2"), "m²")] for w in ctx["works"]], [8.5, 4, 3.5])
     else:
         _pending(doc, "no se cargaron las obras del alcance.")
 
@@ -209,10 +240,25 @@ def _add_alcance(doc: Any, ctx: dict[str, Any]) -> None:
 def _add_interferencias(doc: Any, ctx: dict[str, Any]) -> None:
     doc.add_heading("Interferencias y puntos de interés", level=2)
     if ctx["interferencias"]:
-        _table(doc, ["Figura", "Latitud", "Longitud", "X", "Y", "Cota", "Descripción"],
-               [[r["figura"], r["lat"], r["lon"], str(r["x"]), str(r["y"]), "" if r["cota"] is None else str(r["cota"]),
-                 r["descripcion"]] for r in ctx["interferencias"]], [2.4, 2.4, 2.4, 1.7, 1.7, 1.1, 4.3])
-        doc.add_paragraph("Coordenadas planas POSGAR 94 / Argentina faja 2 (EPSG:22182): X = norte, Y = este.").runs[0].font.size = Pt(8.5)
+        t = _table(doc, ["Figura", "Latitud", "Longitud", "X", "Y", "Cota", "Descripción"], [], [2.4, 2.4, 2.4, 1.7, 1.7, 1.1, 4.3])
+        grupo: object = object()
+        for r in ctx["interferencias"]:
+            if r.get("_traza") and r["_traza"] != grupo:  # una fila de título por traza (ficha), como en el IA
+                grupo = r["_traza"]
+                cells = t.add_row().cells
+                head = cells[0].merge(cells[-1])
+                run = head.paragraphs[0].add_run(str(grupo))
+                run.bold, run.font.size = True, Pt(9)
+                _shade(head, "EEF2F0")
+            cells = t.add_row().cells
+            for c, v in zip(cells, [r["figura"], r["lat"], r["lon"], str(r["x"]), str(r["y"]),
+                                    "" if r["cota"] is None else str(r["cota"]), r["descripcion"]]):
+                c.paragraphs[0].add_run(v).font.size = Pt(9)
+            for c, w in zip(cells, [2.4, 2.4, 2.4, 1.7, 1.7, 1.1, 4.3]):
+                c.width = Cm(w)
+        doc.add_paragraph("Coordenadas: WGS 84 (latitud/longitud) y POSGAR 94 / Argentina faja 2 (EPSG:22182), X = norte, Y = este.").runs[0].font.size = Pt(8.5)
+        cons = (ctx["project"].get("consultant") or {}).get("razon_social") or (ctx["project"].get("consultant") or {}).get("nombre")
+        doc.add_paragraph(f"Fuente: Relevamiento de campo{f' {cons}' if cons else ''}.").runs[0].font.size = Pt(8.5)
     else:
         _pending(doc, "no hay waypoints con posición.")
     from app.core.report_sections import add_figure
@@ -264,8 +310,8 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
     from app.core import report_sections as rs
     from app.core.text_template import project_vars
 
-    today = today or dt.date.today()
     p = ctx["project"]
+    today = today or report_date(p)
     ctx.setdefault("vars", project_vars(p, (ctx.get("client") or {}).get("name")))
     warn: list[str] = ctx.setdefault("_warn", [])
     ctx["_fig_n"] = 0   # numeración de figuras propia de cada armado (no se arrastra entre llamadas)
@@ -278,7 +324,10 @@ def build_docx(ctx: dict[str, Any], photos: list[dict[str, Any]], today: dt.date
     st = doc.styles["Normal"]
     st.font.name = "Arial"
     st.font.size = Pt(10.5)
-    _page_number_footer(sec)
+    sigla = {"IA": "IA", "MTD": "MTD"}.get(str(p.get("doc_type")), str(p.get("doc_type") or ""))
+    cliente = (ctx.get("client") or {}).get("name")
+    _page_number_footer(sec, " ".join(filter(None, [f"Trabajo Nº {p['code']}." if p.get("code") else None, sigla, p["name"]]))
+                        + (f" – {cliente}" if cliente else ""))
     if ctx.get("header_image"):
         hp = sec.header.paragraphs[0]
         hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -378,7 +427,7 @@ def render_with_template(template: bytes, ctx: dict[str, Any], photos: list[dict
         "consultora": p.get("consultant") or {}, "obras": ctx["works"], "interferencias": ctx["interferencias"],
         "fotos": [{"categoria": ph["label"], "epigrafe": ph.get("caption") or "",
                    "imagen": InlineImage(tpl, io.BytesIO(ph["jpeg"]), width=Cm(8))} for ph in photos],
-        "capas": ctx["layers"], "gps": ctx["gps"], "fecha": _fecha(dt.date.today()),
+        "capas": ctx["layers"], "gps": ctx["gps"], "fecha": _fecha(report_date(p)),
         "titulo": TITULO.get(p["doc_type"], "INFORME AMBIENTAL"),
         "encabezado": InlineImage(tpl, io.BytesIO(ctx["header_image"]), width=Cm(16)) if ctx.get("header_image") else "",
         "logo_cliente": InlineImage(tpl, io.BytesIO(ctx["client_logo"]), height=Cm(3)) if ctx.get("client_logo") else "",
@@ -462,7 +511,7 @@ def load_context(client: Any, job: dict[str, Any]) -> dict[str, Any]:
     proj = sel("projects", "*, clients(name, cuit, address, logo_path)", id=pid)[0]
     client_row = proj.pop("clients", None) or {}
     codes = {c["code"]: c["meaning"] for c in sel("catalog_codes", "code, meaning", org_id=org)}
-    fichas = {l["id"]: l["ficha_no"] for l in sel("survey_lines", "id, ficha_no", project_id=pid)}
+    fichas = {l["id"]: (l["ficha_no"], l.get("kind")) for l in sel("survey_lines", "id, ficha_no, kind", project_id=pid)}
     tpl_rows = sel("catalog_text_blocks", "template", org_id=org, scope="interferencia", key="interferencia")
     inter, sin = build_interferencias(
         sel("waypoints_view", "id, line_id, number, code, description, views, lat, lon, elevation_m", project_id=pid),

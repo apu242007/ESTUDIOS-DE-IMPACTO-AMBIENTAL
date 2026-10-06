@@ -53,6 +53,7 @@ function toRow(v: ProjectFormValues) {
     short_name: emptyToNull(v.short_name),
     doc_type: v.doc_type,
     field_area: emptyToNull(v.field_area),
+    report_date: emptyToNull(v.report_date ?? ""),
     province: v.province,
     applicant: {
       razon_social: emptyToNull(v.applicant_razon_social) ?? undefined,

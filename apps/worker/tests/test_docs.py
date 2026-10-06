@@ -12,7 +12,7 @@ from PIL import Image
 from app.core.geo import format_dms, to_gauss_kruger
 from app.jobs import docs
 from app.jobs.docs import (
-    build_docx, build_interferencias, clean_params, docx_to_pdf, prepare_photo, render_template, run_docs_job,
+    build_docx, build_interferencias, clean_params, expand_codes, docx_to_pdf, prepare_photo, render_template, run_docs_job,
 )
 
 # Punto de A.7/A.8 (mismo que la web): lat -38°7'47.78", lon -68°34'8.97"
@@ -75,8 +75,24 @@ def test_interferencias_ordena_y_descarta_sin_posicion() -> None:
     ]
     rows, sin = build_interferencias(wps, {"CR": "Cruce"}, {"l1": 1, "l2": 2})
     assert sin == 1 and [r["figura"] for r in rows] == ["Punto de interés", "Cruce"]
-    assert rows[1]["descripcion"] == "Cruce: con ductos (vistas: O-SO)" and rows[1]["cota"] == 138
+    assert rows[1]["descripcion"] == "Cruce: con ductos" and rows[1]["cota"] == 138  # las vistas van al anexo de fotos
     assert abs(rows[1]["x"] - 5779960) < 5 and abs(rows[1]["y"] - 2537773) < 5
+
+
+def test_interferencias_formato_cliente_filtra_quiebres_y_expande_siglas() -> None:
+    codes = {"CR": "Cruce", "CP": "Camino principal", "CaC": "Caño camisa", "Q": "Quiebre", "O": "Oleoducto"}
+    base = {"line_id": "l1", "views": "O-SO", "lat": LAT, "lon": LON, "elevation_m": None}
+    wps = [
+        {**base, "id": "1", "number": 9, "code": "CR", "description": "CR con CP - CaC"},
+        {**base, "id": "2", "number": 10, "code": "Q", "description": "Q al O"},             # quiebre: fuera
+        {**base, "id": "3", "number": 4, "code": None, "description": "Inicio en PAD 60 BPO"},  # punto de interés
+        {**base, "id": "4", "number": 50, "code": None, "description": "VNO"},               # nota de campo: fuera
+    ]
+    rows, _ = build_interferencias(wps, codes, {"l1": (1, "Acueductos flexibles")})
+    assert [r["_num"] for r in rows] == [4, 9]
+    assert rows[1]["descripcion"] == "Cruce con camino principal - caño camisa"
+    assert rows[0]["descripcion"] == "Inicio en PAD 60 BPO" and rows[0]["_traza"] == "Acueductos flexibles"
+    assert expand_codes("Q al O", codes) == "Q al O"  # siglas de una letra (rumbos) no se tocan
 
 
 def test_plantilla_de_texto() -> None:
@@ -104,9 +120,10 @@ def test_docx_completo_tiene_las_secciones_y_los_datos() -> None:
     data = build_docx(ctx(layers=[{"name": "Caminos", "kind": "SHP", "n": 5}]), photos, dt.date(2026, 9, 30))
     t = text_of(data)
     for esperado in ("INFORME AMBIENTAL", "PAD 58", "Septiembre de 2026", "1. Datos generales", "Operadora SA",
-                     "Alcance de obras", "Camino troncal", "2.270,0 m", "2.269,2 m", "Interferencias y puntos de interés",
+                     "Alcance de obras", "Camino troncal", "2.270,0 m", "Interferencias y puntos de interés",
                      "38° 7'47.78\"S", "5779957", "9. Anexos", "Relevamiento fotográfico", "Foto 1. Vista general", "Caminos"):
         assert esperado in t, esperado
+    assert "2.269,2 m" not in t  # lo medido es control interno: no va al informe del cliente
     assert Document(io.BytesIO(data)).inline_shapes  # la foto quedó incrustada
 
 
@@ -218,7 +235,7 @@ def test_job_completo_sube_docx_y_deja_log(monkeypatch: pytest.MonkeyPatch) -> N
     assert "Foto omitida (o/p/photos/roto.jpg)" in up["log"]            # una foto rota no tira el informe
     assert "1 foto(s) a 800 px" in up["log"] and up["finished_at"]
     t = text_of(c.uploads["o/p/docs/b1/informe.docx"])
-    for esperado in ("PAD 58", "Cruce: con ductos (vistas: O-SO)", "PAD58.gdb", "Caminos", "Foto 1. Vista"):
+    for esperado in ("PAD 58", "Cruce: con ductos", "PAD58.gdb", "Caminos", "Foto 1. Vista"):
         assert esperado in t
 
 
@@ -350,3 +367,13 @@ def test_job_sin_logos_avisa_y_sale_igual(monkeypatch: pytest.MonkeyPatch) -> No
     run_docs_job(c, job())
     up = c.updates[-1]
     assert up["status"] == "listo" and "Sin encabezado de la consultora" in up["log"] and "Sin logo del cliente" in up["log"]
+
+
+def test_fecha_de_la_caratula_sale_del_proyecto() -> None:
+    assert docs.report_date({"report_date": "2026-09-15"}) == dt.date(2026, 9, 15)
+    assert docs.report_date({"report_date": None}) == dt.date.today()
+    c = ctx()
+    c["project"] = {**c["project"], "report_date": "2026-09-15", "code": "2947-26"}
+    d = Document(io.BytesIO(build_docx(c, [])))
+    assert "Septiembre de 2026" in text_of(build_docx(c, []))
+    assert "Trabajo Nº 2947-26." in "".join(p.text for p in d.sections[0].footer.paragraphs)
