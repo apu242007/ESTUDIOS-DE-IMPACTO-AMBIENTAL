@@ -91,9 +91,11 @@ def chapter_blocks(ctx: dict[str, Any], chapter: str) -> list[tuple[str | None, 
 def _chapter(doc: Any, ctx: dict[str, Any], chapter: str, warn: list[str], level: int = 2) -> bool:
     blocks = chapter_blocks(ctx, chapter)
     for sub, text in blocks:
-        if sub:
-            doc.add_heading(sub, level=level)
-        _write(doc, text, ctx["vars"], warn)
+        if sub:  # "Padre / Hijo" → el hijo va un nivel más abajo
+            parts = sub.split(" / ")
+            doc.add_heading(parts[-1], level=level + len(parts) - 1)
+        if text.strip():
+            _write(doc, text, ctx["vars"], warn)
     return bool(blocks)
 
 

@@ -24,7 +24,7 @@ if (e0) { console.error("No se pudo iniciar sesión:", e0.message); process.exit
 
 const data = JSON.parse(readFileSync(resolve(jsonPath), "utf8"));
 const norm = (s) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 70);
+const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 150);  // 70 hacía chocar "Padre / Hijo" largos
 const padRe = pad ? new RegExp(pad.replace(/\s+/g, "\\s?"), "g") : null;
 const tpl = (t) => (padRe ? t.replace(padRe, "{pad}") : t);   // el nombre del proyecto de origen pasa a variable {pad}
 
@@ -77,6 +77,10 @@ console.log(`Declaraciones+secciones: ${uniq.length} | ambiente: ${env2.length} 
 if (dry) { console.log("--dry: no se escribió nada"); process.exit(0); }
 
 for (const c of chunk(uniq)) must(await sb.from("catalog_text_blocks").upsert(c, { onConflict: "org_id,key" }), "textos");
+// secciones que ya no salen del documento (p. ej. claves de una extracción anterior): se borran para no duplicar texto
+const secKeys = new Set(uniq.filter((b) => b.scope === "seccion").map((b) => b.key));
+const viejas = must(await sb.from("catalog_text_blocks").select("key").eq("org_id", org).eq("scope", "seccion"), "secciones").map((r) => r.key).filter((k) => !secKeys.has(k));
+if (viejas.length) must(await sb.from("catalog_text_blocks").delete().eq("org_id", org).eq("scope", "seccion").in("key", viejas), "secciones viejas");
 
 must(await sb.from("catalog_environment").delete().eq("org_id", org).eq("zone_key", zone), "ambiente (borrar)");
 for (const c of chunk(env2)) must(await sb.from("catalog_environment").insert(c), "ambiente");

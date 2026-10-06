@@ -29,8 +29,15 @@ class Block:
     rows: list[list[str]] = field(default_factory=list)
 
 
+# Texto dentro de figuras (cuadros de texto, formas): no es parte del párrafo. Word además lo guarda dos veces
+# (mc:Choice y mc:Fallback), de ahí los "Zona de estudioZona de estudio" pegados en el texto.
+_INSIDE_FIGURE = {W + "txbxContent", W + "drawing", W + "pict",
+                  "{http://schemas.openxmlformats.org/markup-compatibility/2006}AlternateContent"}
+
+
 def _text(el: Any) -> str:
-    return "".join(t.text or "" for t in el.iter(W + "t")).strip()
+    return "".join(t.text or "" for t in el.iter(W + "t")
+                   if not any(a.tag in _INSIDE_FIGURE for a in t.iterancestors())).strip()
 
 
 def read_blocks(path: Path) -> list[Block]:
@@ -84,11 +91,12 @@ def _h1(blocks: list[Block], starts: str) -> tuple[int, int]:
     return idx + 1, end
 
 
-def _by_heading(blocks: list[Block], level: str) -> list[tuple[str, list[str]]]:
-    """[(título, [párrafos])] agrupando por encabezado del nivel dado; ignora tablas y epígrafes."""
+def _by_heading(blocks: list[Block], level: str | tuple[str, ...]) -> list[tuple[str, list[str]]]:
+    """[(título, [párrafos])] agrupando por encabezado de los niveles dados; ignora tablas y epígrafes."""
+    levels = (level,) if isinstance(level, str) else level
     out: list[tuple[str, list[str]]] = []
     for b in blocks:
-        if b.kind == level:
+        if b.kind in levels:
             out.append((b.text, []))
         elif b.kind == "p" and out:
             out[-1][1].append(b.text)
@@ -180,10 +188,18 @@ def extract_ia(path: Path) -> Extract:
         intro = [x.text for x in chunk[: next((i for i, x in enumerate(chunk) if x.kind in ("h2", "h3")), len(chunk))] if x.kind == "p"]
         if intro:
             sections.append({"path": title, "paragraphs": intro})
-        for level in ("h2", "h3"):
-            for h, p in _by_heading(chunk, level):
-                if p:
-                    sections.append({"path": f"{title} / {h}", "paragraphs": p})
+        # En orden del documento: cada párrafo va solo al subtítulo (h2 o h3) inmediato anterior.
+        # (Agrupar primero por h2 y después por h3 duplicaba el texto de los h3 dentro de su h2.)
+        # Un h3 lleva la ruta de su h2 ("Cap / Padre / Hijo"); un h2 sin texto propio queda como título.
+        h2 = ""
+        for x in chunk:
+            if x.kind == "h2":
+                h2 = x.text
+                sections.append({"path": f"{title} / {h2}", "paragraphs": []})
+            elif x.kind == "h3":
+                sections.append({"path": f"{title} / {h2} / {x.text}" if h2 else f"{title} / {x.text}", "paragraphs": []})
+            elif x.kind == "p" and sections and sections[-1]["path"].startswith(f"{title} / "):
+                sections[-1]["paragraphs"].append(x.text)
 
     if not particular:
         report.append("PGA: sin medidas particulares.")
