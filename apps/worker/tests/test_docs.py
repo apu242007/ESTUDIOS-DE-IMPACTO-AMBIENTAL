@@ -391,3 +391,9 @@ def test_paquete_final_mas_grande_que_el_limite_da_mensaje_claro(monkeypatch: py
     assert up["status"] == "error"
     assert "paquete final pesa" in up["log"] and "Error inesperado" not in up["log"]
     assert "o/p/docs/b1/paquete_final.zip" not in c.uploads
+
+
+def test_achicar_fotos_nunca_sube_la_calidad() -> None:
+    assert docs.shrink_photos(1000, 75) == (800, 65)
+    assert docs.shrink_photos(1000, 55) == (800, 50)
+    assert docs.shrink_photos(1000, 40) == (800, 40)   # el usuario eligió 40: no se sube a 50

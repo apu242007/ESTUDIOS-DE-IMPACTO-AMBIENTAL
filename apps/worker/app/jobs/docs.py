@@ -471,6 +471,12 @@ PDF_FILTER = ('pdf:writer_pdf_Export:{"ReduceImageResolution":{"type":"boolean",
 MAX_UPLOAD = 50 * 1024 * 1024  # límite por archivo de Storage del plan
 
 
+def shrink_photos(px: int, q: int) -> tuple[int, int]:
+    """Un paso para que el DOCX entre en Storage: 20 % menos de lado y calidad 10 puntos menos, sin bajar de 50
+    y sin subirla nunca (si el usuario eligió menos de 50, se respeta)."""
+    return int(px * 0.8), max(min(q, 50), q - 10)
+
+
 def _check_size(name: str, data: bytes) -> None:
     if len(data) > MAX_UPLOAD:
         raise ValueError(f"El {name} pesa {len(data) / 1048576:.0f} MB y el máximo es {MAX_UPLOAD // 1048576} MB: "
@@ -708,7 +714,7 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
         docx_bytes = render()
         px, q = params["photo_max_px"], params["jpeg_quality"]
         while len(docx_bytes) > MAX_UPLOAD and px > 600:  # achicar fotos hasta que el DOCX entre en Storage
-            px, q = int(px * 0.8), max(50, q - 10)
+            px, q = shrink_photos(px, q)
             for ph in photos:
                 ph["jpeg"] = prepare_photo(ph["raw"], px, q)
             docx_bytes = render()
