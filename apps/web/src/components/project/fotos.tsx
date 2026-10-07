@@ -43,7 +43,7 @@ function Foto({
       </div>
       <CardContent className="grid gap-2 pt-3">
         <label className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">Epígrafe</span>
+          <span className="text-muted-foreground">Epígrafe (opcional)</span>
           <Input
             key={p.caption ?? ""}
             defaultValue={p.caption ?? ""}

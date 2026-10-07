@@ -86,8 +86,7 @@ export function runControl(d: ControlData): Finding[] {
   if (sinGps.length) add({ id: "wp-gps", severity: "advertencia", title: plural(sinGps.length, "waypoint sin cruzar con el GPS", "waypoints sin cruzar con el GPS"), detail: `N°: ${lista(sinGps.map((w) => w.number ?? "s/n"))}. Tienen solo la posición del teléfono.`, section: "gps" });
 
   // 6) fotos
-  const sinEpigrafe = d.photos.filter((p) => !p.caption?.trim()).length;
-  if (sinEpigrafe) add({ id: "fotos-epigrafe", severity: "advertencia", title: plural(sinEpigrafe, "foto sin epígrafe", "fotos sin epígrafe"), detail: "Cargalo en Fotos para que salga en el anexo.", section: "fotos" });
+  // el epígrafe es opcional: sin él, el anexo pone "Foto N." (no se avisa)
   const sinCat = d.photos.filter((p) => !p.category || !d.photoCategoryKeys.includes(p.category)).length;
   if (sinCat) add({ id: "fotos-cat", severity: "advertencia", title: plural(sinCat, "foto sin categoría reconocida", "fotos sin categoría reconocida"), detail: "Asignale una categoría del catálogo.", section: "fotos" });
 

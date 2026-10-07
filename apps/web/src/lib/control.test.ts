@@ -72,9 +72,9 @@ describe("control de calidad", () => {
     expect(r.find((f) => f.id === "wp-gps")?.title).toBe("1 waypoint sin cruzar con el GPS");
   });
 
-  it("fotos sin epígrafe y con categoría desconocida", () => {
+  it("el epígrafe es opcional (el anexo pone \"Foto N.\"); la categoría desconocida sí se avisa", () => {
     const r = runControl(con({ photos: [{ category: "locacion", caption: " " }, { category: "inventada", caption: "x" }, { category: null, caption: "y" }] }));
-    expect(r.find((f) => f.id === "fotos-epigrafe")?.title).toBe("1 foto sin epígrafe");
+    expect(r.find((f) => f.id === "fotos-epigrafe")).toBeUndefined();
     expect(r.find((f) => f.id === "fotos-cat")?.title).toBe("2 fotos sin categoría reconocida");
   });
 

@@ -60,7 +60,7 @@ export const SECTION_HELP: Partial<Record<SectionId, string>> = {
   mapa: "Obras y capas sobre el mapa.",
   figuras: "Mapas que se incrustan en el informe.",
   interferencias: "Tabla de puntos de interés y cruces para el informe.",
-  fotos: "Anexo fotográfico por categoría, con epígrafes.",
+  fotos: "Anexo fotográfico por categoría. El epígrafe es opcional: sin él, la foto sale numerada.",
   textos: "Textos del informe a partir de plantillas; podés ajustarlos antes de generar.",
   ambiente: "Descripción del ambiente según la zona del proyecto.",
   impactos: "Matriz de acciones por factores, con la importancia calculada.",
