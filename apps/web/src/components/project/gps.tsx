@@ -113,7 +113,7 @@ export function Gps({ orgId, projectId }: { orgId: string; projectId: string }) 
                 </span>
               )}
             </div>
-            {imp.status === "pendiente" && <EnCola desde={imp.created_at} />}
+            {imp.status === "pendiente" && <EnCola />}
             {imp.status === "error" && imp.error && (
               <p role="alert" className="text-sm text-destructive">
                 {imp.error}

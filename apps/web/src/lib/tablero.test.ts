@@ -52,4 +52,10 @@ describe("relevamiento por ficha", () => {
     expect(r[1].puntos.map((p) => p.number)).toEqual([1, 2]);
     expect(r[0].tipo).toBe("Ducto");
   });
+
+  it("la ficha de gabinete (cruces sacados de las capas) se marca aparte: no lleva GPS de mano", () => {
+    const r = porFicha([{ line_id: "g", number: 1, matched: false }, { line_id: "l1", number: 1, matched: true }],
+      [{ id: "g", ficha_no: null, kind: "gabinete" }, { id: "l1", ficha_no: 1, kind: "Ducto" }]);
+    expect(r.map((f) => [f.lineId, f.gabinete])).toEqual([["l1", false], ["g", true]]);
+  });
 });

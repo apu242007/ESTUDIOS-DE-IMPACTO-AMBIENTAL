@@ -87,18 +87,23 @@ function Traza({ projectId }: { projectId: string }) {
   if (isLoading || !data) return <div className="h-48 animate-pulse bg-muted" />;
   const fichas = porFicha(data.wps, data.lineas);
   if (fichas.length === 0) return <Vacio>Todavía no hay waypoints relevados.</Vacio>;
-  const total = data.wps.length, conGps = data.wps.filter((w) => w.matched).length;
+  // los de gabinete salen de las capas: se muestran aparte y no cuentan como "sin cruzar"
+  const campo = fichas.filter((f) => !f.gabinete);
+  const total = campo.reduce((a, f) => a + f.total, 0), conGps = campo.reduce((a, f) => a + f.conGps, 0);
+  const gabinete = fichas.filter((f) => f.gabinete).reduce((a, f) => a + f.total, 0);
   return (
     <>
       <ul className="grid gap-2.5">
         {fichas.map((f, fi) => (
           <li key={f.lineId} className="grid grid-cols-[4.5rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm sm:grid-cols-[6rem_minmax(0,1fr)_3.5rem]">
             <span className="min-w-0">
-              <span className="block font-bold">{f.ficha === null ? "Sin ficha" : `Ficha ${f.ficha}`}</span>
-              {f.tipo && <span className="block truncate text-xs text-muted-foreground">{f.tipo.charAt(0).toUpperCase() + f.tipo.slice(1)}</span>}
+              <span className="block font-bold">{f.gabinete ? "Gabinete" : f.ficha === null ? "Sin ficha" : `Ficha ${f.ficha}`}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {f.gabinete ? "de las capas" : f.tipo ? f.tipo.charAt(0).toUpperCase() + f.tipo.slice(1) : ""}
+              </span>
             </span>
             <span className="relative flex h-4 items-center" role="img"
-              aria-label={`Ficha ${f.ficha ?? "sin número"}: ${f.total} waypoints, ${f.conGps} con GPS, ${f.total - f.conGps} sin cruzar`}>
+              aria-label={f.gabinete ? `Gabinete: ${f.total} cruces sacados de las capas, no llevan GPS de mano` : `Ficha ${f.ficha ?? "sin número"}: ${f.total} waypoints, ${f.conGps} con GPS, ${f.total - f.conGps} sin cruzar`}>
               <span aria-hidden="true" className="fill-x absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-curva" style={{ animationDelay: `${fi * 70}ms` }} />
               {/* una columna por waypoint: con muchos puntos se achican en vez de salirse */}
               <span className="relative grid w-full items-center justify-items-center" style={{ gridTemplateColumns: `repeat(${f.puntos.length}, minmax(0, 1fr))` }}>
@@ -106,22 +111,23 @@ function Traza({ projectId }: { projectId: string }) {
                   <span
                     key={i}
                     aria-hidden="true"
-                    className={cn("pop block aspect-square rounded-full", p.matched ? "w-2 max-w-full bg-ok" : "w-2.5 max-w-full border-2 border-destructive bg-card")}
+                    className={cn("pop block aspect-square rounded-full", f.gabinete ? "w-2 max-w-full bg-muted-foreground/50" : p.matched ? "w-2 max-w-full bg-ok" : "w-2.5 max-w-full border-2 border-destructive bg-card")}
                     style={{ animationDelay: `${fi * 70 + 250 + i * 12}ms` }}
                   />
                 ))}
               </span>
             </span>
-            <span className={cn("tnum text-right font-heading font-bold", f.conGps < f.total && "text-destructive")}>
-              {f.conGps}/{f.total}
+            <span className={cn("tnum text-right font-heading font-bold", !f.gabinete && f.conGps < f.total && "text-destructive", f.gabinete && "font-normal text-muted-foreground")}>
+              {f.gabinete ? f.total : `${f.conGps}/${f.total}`}
             </span>
           </li>
         ))}
       </ul>
       <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t pt-3 text-sm">
-        <div><dt className="text-muted-foreground">Waypoints</dt><dd className="tnum font-heading text-2xl font-bold">{total}</dd></div>
+        <div><dt className="text-muted-foreground">De campo</dt><dd className="tnum font-heading text-2xl font-bold">{total}</dd></div>
         <div><dt className="text-muted-foreground">Con GPS</dt><dd className="tnum font-heading text-2xl font-bold text-ok">{conGps}</dd></div>
-        <div><dt className="text-muted-foreground">Sin cruzar</dt><dd className="tnum font-heading text-2xl font-bold text-destructive">{total - conGps}</dd></div>
+        <div><dt className="text-muted-foreground">Sin cruzar</dt><dd className={cn("tnum font-heading text-2xl font-bold", total - conGps ? "text-destructive" : "text-muted-foreground")}>{total - conGps}</dd></div>
+        {gabinete > 0 && <div><dt className="text-muted-foreground">De gabinete</dt><dd className="tnum font-heading text-2xl font-bold text-muted-foreground">{gabinete}</dd></div>}
       </dl>
     </>
   );
@@ -236,7 +242,7 @@ export function Tablero({ orgId, projectId, thresholds, onGo }: { orgId: string;
       >
         {isLoading ? <div className="h-48 animate-pulse bg-muted" /> : filas.length ? <Perfil filas={filas} /> : <Vacio>Todavía no hay obras en el alcance.</Vacio>}
       </Bloque>
-      <Bloque titulo="Relevamiento" ayuda="Cada línea es una ficha con sus waypoints en orden. Los huecos rojos todavía no tienen el cruce con el GPS." onGo={() => onGo("relevamiento")} ir="Ir al relevamiento">
+      <Bloque titulo="Relevamiento" ayuda="Cada línea es una ficha con sus waypoints en orden. Los huecos rojos todavía no tienen el cruce con el GPS; los de gabinete salen de las capas y no lo necesitan." onGo={() => onGo("relevamiento")} ir="Ir al relevamiento">
         <Traza projectId={projectId} />
       </Bloque>
       <Bloque titulo="Interferencias por tipo" ayuda="Lo que va a la tabla del informe, agrupado por figura." onGo={() => onGo("interferencias")} ir="Ver la tabla">

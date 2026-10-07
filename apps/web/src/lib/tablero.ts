@@ -40,7 +40,12 @@ export function topImpactos(rows: Impacto[], acciones: Map<string, string>, fact
 
 type Wp = { line_id: string; number: number | null; matched: boolean };
 type Linea = { id: string; ficha_no: number | null; kind: string | null };
-export type Ficha = { lineId: string; ficha: number | null; tipo: string | null; total: number; conGps: number; puntos: { number: number | null; matched: boolean }[] };
+/** `gabinete`: la ficha de los cruces que se sacan de las capas en la oficina (no lleva GPS de mano). */
+export type Ficha = {
+  lineId: string; ficha: number | null; tipo: string | null; gabinete: boolean; total: number; conGps: number;
+  puntos: { number: number | null; matched: boolean }[];
+};
+export const GABINETE = "gabinete";
 
 /** El relevamiento como esquema: una fila por ficha con sus waypoints en orden y cuántos tienen cruce con el GPS.
  * (Un mapa a escala real no sirve de tablero: con tramos a kilómetros entre sí, todo se aplasta en una franja.) */
@@ -52,8 +57,9 @@ export function porFicha(wps: Wp[], lineas: Linea[]): Ficha[] {
     lineId,
     ficha: info.get(lineId)?.ficha_no ?? null,
     tipo: info.get(lineId)?.kind ?? null,
+    gabinete: info.get(lineId)?.kind === GABINETE,
     total: ws.length,
     conGps: ws.filter((w) => w.matched).length,
     puntos: ws.sort((a, b) => (a.number ?? 0) - (b.number ?? 0)).map((w) => ({ number: w.number, matched: w.matched })),
-  })).sort((a, b) => (a.ficha ?? Infinity) - (b.ficha ?? Infinity));
+  })).sort((a, b) => Number(a.gabinete) - Number(b.gabinete) || (a.ficha ?? Infinity) - (b.ficha ?? Infinity));
 }

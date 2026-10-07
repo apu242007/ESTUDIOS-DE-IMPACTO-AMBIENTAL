@@ -194,7 +194,7 @@ export function Informe({
                     <span className="tnum text-sm text-muted-foreground">{fecha(b.created_at)}</span>
                   </div>
 
-                  {b.status === "pendiente" && <EnCola desde={b.created_at} />}
+                  {b.status === "pendiente" && <EnCola />}
 
                   {b.status === "listo" && (
                     <div className="flex flex-wrap gap-2">

@@ -82,7 +82,7 @@ function FigureCard({ figure, projectId, queryKey }: {
           <p className="text-sm text-muted-foreground">
             {figureBaseLabel[figure.params.base]} · {figure.params.leyenda ? "Con leyenda" : "Sin leyenda"}
           </p>
-          {figure.status === "pendiente" && <EnCola desde={figure.created_at} />}
+          {figure.status === "pendiente" && <EnCola />}
           {figure.error && <p role="alert" className="text-sm text-destructive">{figure.error}</p>}
           <div className="flex flex-wrap gap-2">
             {figure.status === "listo" && figure.file_path && (

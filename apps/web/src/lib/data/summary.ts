@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import type { ProjectRow } from "@/lib/schemas";
 import { applySkipped, buildChecklist, type CheckItem, type Counts } from "@/lib/checklist";
+import { GABINETE } from "@/lib/tablero";
 
 const filled = (v: string | undefined) => !!v && v.trim() !== "";
 
@@ -24,14 +25,19 @@ export async function getChecklist(project: ProjectRow): Promise<CheckItem[]> {
   const sb = createClient();
   const id = project.id;
   const head = { count: "exact" as const, head: true };
+  // los cruces de gabinete (sacados de las capas en la oficina) no llevan GPS de mano: no cuentan para el cruce
+  const gab = await sb.from("survey_lines").select("id").eq("project_id", id).eq("kind", GABINETE);
+  if (gab.error) throw new Error(gab.error.message);
+  const deCampo = <Q extends { not: (c: string, o: string, v: string) => Q }>(q: Q): Q =>
+    gab.data.length ? q.not("line_id", "in", `(${gab.data.map((l) => l.id).join(",")})`) : q;
 
   const [works, worksGeom, layers, lines, wps, wpsGps, gps, photos, impacts, measures] = await Promise.all([
     sb.from("works").select("id", head).eq("project_id", id),
     sb.from("works").select("id", head).eq("project_id", id).not("geom", "is", null),
     sb.from("layer_imports").select("status").eq("project_id", id),
     sb.from("survey_lines").select("closed").eq("project_id", id),
-    sb.from("waypoints").select("id", head).eq("project_id", id),
-    sb.from("waypoints").select("id", head).eq("project_id", id).eq("matched", true),
+    deCampo(sb.from("waypoints").select("id", head).eq("project_id", id)),
+    deCampo(sb.from("waypoints").select("id", head).eq("project_id", id).eq("matched", true)),
     sb.from("gps_imports").select("status").eq("project_id", id),
     sb.from("photos").select("id", head).eq("project_id", id),
     sb.from("project_impacts").select("id", head).eq("project_id", id),

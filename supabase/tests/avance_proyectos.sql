@@ -19,10 +19,14 @@ begin
   insert into survey_lines(id, project_id, closed) values (l, pa, true), (gen_random_uuid(), pa, false);
   insert into waypoints(id, project_id, line_id, number, matched) values
     (gen_random_uuid(), pa, l, 1, true), (gen_random_uuid(), pa, l, 2, false), (gen_random_uuid(), pa, l, 3, true);
+  -- ficha de gabinete (cruces de las capas): no cuenta para el cruce GPS (0024)
+  insert into survey_lines(id, project_id, kind, closed) values (gen_random_uuid(), pa, 'gabinete', true);
+  insert into waypoints(id, project_id, line_id, number, matched)
+    select gen_random_uuid(), pa, id, 9, false from survey_lines where project_id = pa and kind = 'gabinete';
 
   select * into r from project_progress where project_id = pa;
-  res := res || format(E'%s  cuenta obras, fichas y waypoints (%s/%s/%s/%s/%s)\n',
-    case when r.works = 2 and r.lines = 2 and r.lines_closed = 1 and r.waypoints = 3 and r.waypoints_matched = 2 then 'OK ' else 'FALLA' end,
+  res := res || format(E'%s  cuenta obras, fichas y waypoints de campo, sin los de gabinete (%s/%s/%s/%s/%s)\n',
+    case when r.works = 2 and r.lines = 3 and r.lines_closed = 2 and r.waypoints = 3 and r.waypoints_matched = 2 then 'OK ' else 'FALLA' end,
     r.works, r.lines, r.lines_closed, r.waypoints, r.waypoints_matched);
   select * into r from project_progress where project_id = pb;
   res := res || format(E'%s  un proyecto vacío da ceros, no nulos\n', case when r.works = 0 and r.photos = 0 and r.gps_statuses = '{}' then 'OK ' else 'FALLA' end);

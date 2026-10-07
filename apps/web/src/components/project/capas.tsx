@@ -205,7 +205,7 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
             {imp.status === "requiere_crs" && (
               <CrsConfirm imp={imp} busy={requeue.isPending} onConfirm={(epsg) => requeue.mutate({ id: imp.id, epsg })} />
             )}
-            {imp.status === "pendiente" && <EnCola desde={imp.created_at} />}
+            {imp.status === "pendiente" && <EnCola />}
             {imp.status === "error" && imp.error && (
               <p role="alert" className="text-sm text-destructive">
                 {imp.error}
