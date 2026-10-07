@@ -1,14 +1,15 @@
 "use client";
 
 import { ArrowRight, Check, Minus } from "lucide-react";
-import { Contours } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { nextStep, progress, type CheckItem, type SectionId } from "@/lib/checklist";
 import { cn } from "@/lib/utils";
 
 export function Resumen({
-  items, loading, error, onGo, canSkip = false, skipping = false, onSkip,
+  items, loading, error, onGo, canSkip = false, skipping = false, onSkip, children,
 }: {
+  /** El tablero del proyecto va entre el siguiente paso y el recorrido. */
+  children?: React.ReactNode;
   items: CheckItem[]; loading: boolean; error: string | null; onGo: (s: SectionId) => void;
   /** Solo un admin puede omitir pasos (la base lo exige igual, migración 0021). */
   canSkip?: boolean; skipping?: boolean; onSkip?: (item: CheckItem, skip: boolean) => void;
@@ -28,36 +29,45 @@ export function Resumen({
 
   return (
     <div className="grid gap-8">
-      <section aria-labelledby="sig" className="relative isolate overflow-hidden rounded-lg bg-basalto p-6 text-white sm:p-8">
-        <Contours className="drift pointer-events-none absolute -right-24 -top-24 -z-10 size-[34rem] text-jarilla/20" />
-        <h2 id="sig" className="text-base font-semibold text-jarilla">
-          {next ? "Siguiente paso" : "Todo listo"}
-        </h2>
-        {next ? (
-          <>
-            <p className="mt-2 font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{next.label}</p>
-            <p className="mt-2 max-w-prose text-base text-white/75">{next.detail}</p>
-            <Button variant="jarilla" size="lg" className="mt-5" onClick={() => onGo(next.section)}>
+      {/* Siguiente paso: la única franja amarilla de la pantalla (el amarillo se reserva para lo activo) */}
+      <section aria-labelledby="sig" className={cn("grid gap-4 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center", next ? "bg-senal text-foreground" : "border-[1.5px] border-ok bg-card")}>
+        <div className="min-w-0">
+          <h2 id="sig" className="text-sm font-bold [font-stretch:100%]">{next ? "Siguiente paso" : "Todo listo"}</h2>
+          {next ? (
+            <>
+              <p className="mt-1 font-heading text-3xl font-extrabold leading-tight [font-stretch:112%] sm:text-4xl">{next.label}</p>
+              <p className="mt-1 max-w-prose text-base">{next.detail}</p>
+            </>
+          ) : (
+            <p className="mt-1 max-w-prose text-lg">Los datos, capas, relevamiento y GPS están completos. Ya podés revisar los resultados.</p>
+          )}
+        </div>
+        {next && (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" className="bg-foreground text-white hover:bg-foreground/90" onClick={() => onGo(next.section)}>
               Ir a {next.label.toLowerCase()}
               <ArrowRight aria-hidden="true" />
             </Button>
-          </>
-        ) : (
-          <p className="mt-2 max-w-prose text-lg">
-            Los datos, capas, relevamiento y GPS están completos. Ya podés revisar los resultados.
-          </p>
+            {canSkip && onSkip && (
+              <Button size="lg" variant="outline" className="border-foreground bg-transparent hover:bg-foreground/10" disabled={skipping} onClick={() => onSkip(next, true)}>
+                Omitir
+              </Button>
+            )}
+          </div>
         )}
       </section>
 
+      {children}
+
       <section aria-labelledby="lista">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 id="lista" className="font-heading text-2xl font-semibold tracking-tight">Recorrido del proyecto</h2>
+          <h2 id="lista" className="text-2xl font-bold [font-stretch:100%]">Recorrido del proyecto</h2>
           <p className="tnum text-sm text-muted-foreground" aria-live="polite">
             {done} de {total} listos
           </p>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-border" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Avance del proyecto">
-          <div className="fill-x h-full rounded-full bg-ok" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
+        <div className="mt-2 h-2 overflow-hidden bg-border" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Avance del proyecto">
+          <div className="fill-x h-full bg-ok" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
         </div>
 
         {/* Transecta: cada paso es un waypoint sobre la línea */}

@@ -35,6 +35,7 @@ import { Relevamiento } from "@/components/project/relevamiento";
 import { Resumen } from "@/components/project/resumen";
 import { MobileSectionBar, PhaseNav } from "@/components/project/phase-nav";
 import { PliegoHeader } from "@/components/project/pliego";
+import { Tablero } from "@/components/project/tablero";
 import { SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
@@ -250,7 +251,9 @@ function ProjectDetail() {
               {SECTION_HELP[section] && <p className="text-base text-muted-foreground">{SECTION_HELP[section]}</p>}
             </div>
           )}
-          {section === "resumen" &&<Resumen items={items} loading={loadingList} error={!online ? "sin señal" : listError ? errMsg(listError) : null} onGo={go} canSkip={isAdmin} skipping={skip.isPending} onSkip={toggleSkip} />}
+          {section === "resumen" &&<Resumen items={items} loading={loadingList} error={!online ? "sin señal" : listError ? errMsg(listError) : null} onGo={go} canSkip={isAdmin} skipping={skip.isPending} onSkip={toggleSkip}>
+            {online && <Tablero orgId={orgId} projectId={project.id} thresholds={parseThresholds(project.thresholds)} onGo={go} />}
+          </Resumen>}
           {section === "datos" && (
             <Card>
               <CardContent className="pt-4">

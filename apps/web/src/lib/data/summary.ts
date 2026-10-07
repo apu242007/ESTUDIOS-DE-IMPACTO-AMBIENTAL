@@ -83,3 +83,11 @@ export async function listChecklists(orgId: string, projects: ProjectRow[]): Pro
   }
   return out;
 }
+
+/** Waypoints con posición y estado del cruce GPS, para la traza del tablero. */
+export async function listWaypointsTraza(projectId: string) {
+  const { data, error } = await createClient()
+    .from("waypoints_view").select("line_id, number, lat, lon, matched").eq("project_id", projectId).limit(5000);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as { line_id: string; number: number | null; lat: number | null; lon: number | null; matched: boolean }[];
+}
