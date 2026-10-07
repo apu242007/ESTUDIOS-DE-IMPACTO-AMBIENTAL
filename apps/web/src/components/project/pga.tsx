@@ -4,6 +4,7 @@ import { useConfirm } from "@/components/confirm";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -151,13 +152,17 @@ export function Pga({ orgId, project }: { orgId: string; project: ProjectRow }) 
         {elegidas.length === 0 ? (
           <p role="note" className="text-warn">Sección incompleta: todavía no elegiste medidas particulares.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border bg-card">
-            <table className="w-full min-w-[68rem] text-sm">
+          <div className="rounded-xl border bg-card">
+            {/* columnas proporcionales: el cuadro llena el ancho sin barra lateral; en el celular cada medida es una ficha */}
+            <table className="table-cards w-full text-sm md:table-fixed">
+              <colgroup>
+                {[9, 13, 27, 12, 13, 13, 8, 5].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+              </colgroup>
               <caption className="sr-only">Medidas del Plan de Gestión Ambiental por etapa</caption>
               <thead>
                 <tr className="border-b bg-muted text-left">
-                  {["Etapa", "Acción", "Medida", "Recurso afectado", "Cronograma", "Responsable", "Seguimiento"].map((h) => (
-                    <th key={h} scope="col" className="px-3 py-2 font-semibold">{h}</th>
+                  {["Etapa", "Acción", "Medida", "Recurso afectado", "Cronograma", "Responsable", "Seguimiento", ""].map((h, i) => (
+                    <th key={i} scope="col" className="px-2 py-2 align-bottom font-semibold leading-tight">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -166,23 +171,29 @@ export function Pga({ orgId, project }: { orgId: string; project: ProjectRow }) 
                   const s = sel.get(m.id);
                   return (
                     <tr key={m.id} className="border-b align-top last:border-0">
-                      <td className="px-3 py-2">{STAGE_LABEL[g.stage] ?? "—"}</td>
-                      <td className="px-3 py-2">{a.action}</td>
-                      <td className="px-3 py-2">{text(m)}</td>
-                      <td className="px-3 py-2">{m.resource ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        <SelectAdd aria-label="Cronograma" className="h-11 w-48" value={s?.timing ?? m.timing ?? ""} onValue={(v) => upd.mutate({ id: m.id, patch: { timing: v || null } })} canAdd fields={["Cronograma"]} onAdd={async ([v]) => v}>
+                      <td data-label="Etapa" className="px-2 py-2">{STAGE_LABEL[g.stage] ?? "—"}</td>
+                      <td data-label="Acción" className="px-2 py-2">{a.action}</td>
+                      <td data-label="Medida" data-wide className="px-2 py-2">{text(m)}</td>
+                      <td data-label="Recurso afectado" className="px-2 py-2">{m.resource ?? "—"}</td>
+                      <td data-label="Cronograma" className="px-2 py-2">
+                        <SelectAdd aria-label="Cronograma" className="h-11 w-full min-w-0 px-1.5 text-sm" value={s?.timing ?? m.timing ?? ""} onValue={(v) => upd.mutate({ id: m.id, patch: { timing: v || null } })} canAdd fields={["Cronograma"]} onAdd={async ([v]) => v}>
                           <option value="">—</option>
                           {[...new Set([...(s?.timing ? [s.timing] : []), ...(m.timing ? [m.timing] : []), ...opciones.timing])].map((o) => <option key={o} value={o}>{o}</option>)}
                         </SelectAdd>
                       </td>
-                      <td className="px-3 py-2">
-                        <SelectAdd aria-label="Responsable" className="h-11 w-48" value={s?.responsible ?? m.responsible ?? ""} onValue={(v) => upd.mutate({ id: m.id, patch: { responsible: v || null } })} canAdd fields={["Responsable"]} onAdd={async ([v]) => v}>
+                      <td data-label="Responsable" className="px-2 py-2">
+                        <SelectAdd aria-label="Responsable" className="h-11 w-full min-w-0 px-1.5 text-sm" value={s?.responsible ?? m.responsible ?? ""} onValue={(v) => upd.mutate({ id: m.id, patch: { responsible: v || null } })} canAdd fields={["Responsable"]} onAdd={async ([v]) => v}>
                           <option value="">—</option>
                           {[...new Set([...(s?.responsible ? [s.responsible] : []), ...(m.responsible ? [m.responsible] : []), ...opciones.responsible])].map((o) => <option key={o} value={o}>{o}</option>)}
                         </SelectAdd>
                       </td>
-                      <td className="px-3 py-2">{m.follow_up ?? "—"}</td>
+                      <td data-label="Seguimiento" className="px-2 py-2">{m.follow_up ?? "—"}</td>
+                      <td data-wide className="px-2 py-2 text-right">
+                        <Button variant="outline" size="icon" aria-label={`Quitar la medida: ${text(m).slice(0, 60)}`} title="Quitar medida" disabled={del.isPending}
+                          onClick={() => void confirm({ title: "¿Quitar esta medida del PGA?", details: [text(m).slice(0, 140)], confirmLabel: "Quitar", danger: true }).then((ok) => ok && del.mutate([m.id]))}>
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })))}

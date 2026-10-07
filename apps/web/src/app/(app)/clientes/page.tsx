@@ -56,8 +56,12 @@ export default function ClientesPage() {
       </div>
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <Table>
+        <CardContent className="p-0">
+          {/* llena el ancho sin barra lateral; en el celular cada cliente es una ficha */}
+          <Table className="table-cards md:table-fixed [&_td]:whitespace-normal">
+            <colgroup>
+              {[9, 30, 16, 27, 18].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-14" />
@@ -82,13 +86,14 @@ export default function ClientesPage() {
               )}
               {clients.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell>
+                  <TableCell data-label="Logo">
                     {orgId && <ClientLogoButton orgId={orgId} client={c} />}
                   </TableCell>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>{c.cuit ?? "—"}</TableCell>
-                  <TableCell>{[c.contact.nombre, c.contact.email].filter(Boolean).join(" · ") || "—"}</TableCell>
-                  <TableCell className="space-x-2 text-right whitespace-nowrap">
+                  <TableCell data-label="Nombre" className="font-medium">{c.name}</TableCell>
+                  <TableCell data-label="CUIT">{c.cuit ?? "—"}</TableCell>
+                  <TableCell data-label="Contacto" data-wide className="break-words">{[c.contact.nombre, c.contact.email].filter(Boolean).join(", ") || "—"}</TableCell>
+                  <TableCell data-wide className="text-right">
+                    <span className="inline-flex flex-wrap justify-end gap-2">
                     <Button variant="outline" onClick={() => setEditing(c)}>
                       Editar
                     </Button>
@@ -101,6 +106,7 @@ export default function ClientesPage() {
                     >
                       Eliminar
                     </Button>
+                    </span>
                   </TableCell>
                 </TableRow>
               ))}

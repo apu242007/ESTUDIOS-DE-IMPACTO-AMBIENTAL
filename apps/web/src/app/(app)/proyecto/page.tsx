@@ -277,7 +277,7 @@ function ProjectDetail() {
           {section === "comparacion" && <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} onGo={go} />}
           {section === "mapa" && <Mapa projectId={project.id} />}
           {section === "figuras" && <Figuras projectId={project.id} />}
-          {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} />}
+          {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} onGo={go} />}
           {section === "fotos" && <Fotos orgId={orgId} projectId={project.id} />}
           {section === "impactos" && <Impactos orgId={orgId} projectId={project.id} />}
           {section === "textos" && <Textos orgId={orgId} project={project} />}

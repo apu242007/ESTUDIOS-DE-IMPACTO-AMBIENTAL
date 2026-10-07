@@ -262,11 +262,12 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="min-w-full border-collapse text-sm">
+        {/* escritorio: columnas iguales que llenan el ancho (sin barra); celular: la matriz se desliza */}
+        <table className="w-full min-w-[60rem] border-collapse text-sm lg:min-w-0 lg:table-fixed">
           <caption className="sr-only">Matriz de impactos: factores del medio por acciones del proyecto</caption>
           <thead>
             <tr className="border-b bg-muted">
-              <th scope="col" rowSpan={2} className="sticky left-0 z-10 min-w-56 bg-muted px-3 py-2 text-left font-semibold">Factor</th>
+              <th scope="col" rowSpan={2} className="sticky left-0 z-10 w-52 bg-muted px-3 py-2 text-left font-semibold">Factor</th>
               {stageGroups.map(([s, list]) => (
                 <th key={s} scope="colgroup" colSpan={list.length} className="border-l px-2 py-2 text-center font-semibold">{stageName[s]}</th>
               ))}
@@ -274,7 +275,7 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
             </tr>
             <tr className="border-b bg-muted">
               {orderedActions.map((a) => (
-                <th key={a.id} scope="col" className="w-24 min-w-24 border-l px-1 py-2 align-bottom text-xs font-medium leading-tight">
+                <th key={a.id} scope="col" className="border-l px-1 py-2 align-bottom text-xs font-medium leading-tight">
                   <span className="line-clamp-4 block" title={a.name}>{a.name}</span>
                 </th>
               ))}
@@ -305,7 +306,7 @@ export function Impactos({ orgId, projectId }: { orgId: string; projectId: strin
                             onClick={() => setOpen({ factorId: f.id, actionId: a.id })}
                             aria-label={`${f.name}, ${a.name}: ${label}. Editar`}
                             className={cn(
-                              "flex h-11 w-full min-w-11 cursor-pointer flex-col items-center justify-center rounded-md text-sm font-medium transition-colors hover:ring-2 hover:ring-ring",
+                              "flex h-11 w-full min-w-0 cursor-pointer flex-col items-center justify-center rounded-md text-sm font-medium transition-colors hover:ring-2 hover:ring-ring",
                               tone(level),
                             )}
                           >
