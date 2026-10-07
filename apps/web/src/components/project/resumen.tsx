@@ -1,14 +1,18 @@
 "use client";
 
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Minus } from "lucide-react";
 import { Contours } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { nextStep, progress, type CheckItem, type SectionId } from "@/lib/checklist";
 import { cn } from "@/lib/utils";
 
 export function Resumen({
-  items, loading, error, onGo,
-}: { items: CheckItem[]; loading: boolean; error: string | null; onGo: (s: SectionId) => void }) {
+  items, loading, error, onGo, canSkip = false, skipping = false, onSkip,
+}: {
+  items: CheckItem[]; loading: boolean; error: string | null; onGo: (s: SectionId) => void;
+  /** Solo un admin puede omitir pasos (la base lo exige igual, migración 0021). */
+  canSkip?: boolean; skipping?: boolean; onSkip?: (item: CheckItem, skip: boolean) => void;
+}) {
   const next = nextStep(items);
   const { done, total } = progress(items);
 
@@ -65,34 +69,53 @@ export function Resumen({
                 {idx < items.length - 1 && (
                   <span
                     aria-hidden="true"
-                    className={cn("absolute left-[1.05rem] top-9 bottom-[-0.25rem] w-0.5", i.done ? "line-y bg-ok" : "border-l-2 border-dashed border-border")}
+                    className={cn("absolute left-[1.05rem] top-9 bottom-[-0.25rem] w-0.5",
+                      i.skipped ? "bg-muted-foreground/40" : i.done ? "line-y bg-ok" : "border-l-2 border-dashed border-border")}
                   />
                 )}
+                <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => onGo(i.section)}
-                  className="group flex min-h-16 w-full cursor-pointer items-center gap-4 rounded-md py-2 pr-3 text-left transition-colors hover:bg-card"
+                  className="group flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-md py-2 pr-3 text-left transition-colors hover:bg-card"
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
                       "tnum relative z-10 grid size-9 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-medium",
-                      i.done && "border-ok bg-ok text-white",
+                      i.skipped && "border-muted-foreground/40 bg-muted text-muted-foreground",
+                      i.done && !i.skipped && "border-ok bg-ok text-white",
                       !i.done && isNext && "pulse-ring border-jarilla bg-jarilla text-basalto",
                       !i.done && !isNext && "border-border bg-background text-muted-foreground",
                     )}
                   >
-                    {i.done ? <Check className="pop size-5" /> : String(idx + 1).padStart(2, "0")}
+                    {i.skipped ? <Minus className="size-5" /> : i.done ? <Check className="pop size-5" /> : String(idx + 1).padStart(2, "0")}
                   </span>
                   <span className="grid min-w-0 flex-1">
                     <span className="text-base font-semibold">
                       {i.label}
-                      <span className="sr-only">{i.done ? " — listo" : isNext ? " — siguiente" : " — pendiente"}</span>
+                      <span className="sr-only">{i.skipped ? " — omitido" : i.done ? " — listo" : isNext ? " — siguiente" : " — pendiente"}</span>
                     </span>
-                    <span className="text-sm text-muted-foreground">{i.detail}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {i.skipped && <strong className="font-semibold text-foreground">Omitido · </strong>}
+                      {i.detail}
+                    </span>
                   </span>
                   <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                 </button>
+                {canSkip && onSkip && (!i.done || i.skipped) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 shrink-0"
+                    disabled={skipping}
+                    onClick={() => onSkip(i, !i.skipped)}
+                    aria-label={`${i.skipped ? "Deshacer omisión de" : "Omitir"} ${i.label}`}
+                  >
+                    {i.skipped ? "Deshacer" : "Omitir"}
+                  </Button>
+                )}
+                </div>
               </li>
             );
           })}

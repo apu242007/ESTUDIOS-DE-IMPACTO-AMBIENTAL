@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
+import { useConfirm } from "@/components/confirm";
 import { ProjectForm } from "@/components/project-form";
 import { Alcance } from "@/components/project/alcance";
 import { Capas } from "@/components/project/capas";
@@ -37,10 +38,10 @@ import { MobileSectionBar, PhaseNav } from "@/components/project/phase-nav";
 import { SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
-import { progress, sectionStatus, type SectionId } from "@/lib/checklist";
+import { progress, sectionStatus, type CheckItem, type SectionId } from "@/lib/checklist";
 import { DEFAULT_THRESHOLDS, parseThresholds, thresholdsValid } from "@/lib/threshold";
 import { useAuth } from "@/lib/auth/auth-provider";
-import { addCadastre, deleteCadastre, getProject, listCadastre, resetThresholds } from "@/lib/data/projects";
+import { addCadastre, deleteCadastre, getProject, listCadastre, resetThresholds, setSkippedSteps } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
 import { useOnline } from "@/lib/offline/use-online";
 import { cadastreFormSchema } from "@/lib/schemas";
@@ -142,6 +143,30 @@ function ProjectDetail() {
     router.push(`/proyecto/?id=${id}&s=${s}`, { scroll: false });
   };
 
+  const confirm = useConfirm();
+  const skip = useMutation({
+    mutationFn: (steps: string[]) => setSkippedSteps(id as string, steps),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["project", id] });
+      void qc.invalidateQueries({ queryKey: ["checklist", id] });
+      void qc.invalidateQueries({ queryKey: ["control", id] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const toggleSkip = (item: CheckItem, omitir: boolean) => {
+    const actuales = project?.skipped_steps ?? [];
+    if (!omitir) return skip.mutate(actuales.filter((s) => s !== item.id));
+    void confirm({
+      title: `¿Omitir “${item.label}”?`,
+      details: [
+        `Se da por cumplido aunque falta: ${item.detail}`,
+        "El informe no cambia: lo que no tenga datos sigue saliendo como incompleto.",
+        "Queda registrado en Control para quien revisa. Se puede deshacer.",
+      ],
+      confirmLabel: "Omitir paso",
+    }).then((ok) => { if (ok) skip.mutate([...actuales, item.id]); });
+  };
+
   const reset = useMutation({
     mutationFn: () => resetThresholds(id as string),
     onSuccess: () => {
@@ -237,7 +262,7 @@ function ProjectDetail() {
               {SECTION_HELP[section] && <p className="text-base text-muted-foreground">{SECTION_HELP[section]}</p>}
             </div>
           )}
-          {section === "resumen" &&<Resumen items={items} loading={loadingList} error={!online ? "sin señal" : listError ? errMsg(listError) : null} onGo={go} />}
+          {section === "resumen" &&<Resumen items={items} loading={loadingList} error={!online ? "sin señal" : listError ? errMsg(listError) : null} onGo={go} canSkip={isAdmin} skipping={skip.isPending} onSkip={toggleSkip} />}
           {section === "datos" && (
             <Card>
               <CardContent className="pt-4">

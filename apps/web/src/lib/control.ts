@@ -23,6 +23,8 @@ export type ControlData = {
   measuresSelected: number;
   figureKinds: string[];
   hasFinalBuild: boolean;
+  /** Pasos del recorrido que un admin omitió, con lo que les faltaba (queda a la vista de quien revisa). */
+  skipped?: { id: string; label: string; detail: string; section: SectionId }[];
 };
 
 export const AREA_BUFFER_KM = 15;
@@ -107,6 +109,11 @@ export function runControl(d: ControlData): Finding[] {
   const sinFig = REQUIRED_FIGURES.filter((k) => !d.figureKinds.includes(k));
   if (sinFig.length) add({ id: "figuras", severity: "advertencia", title: plural(sinFig.length, "figura sin generar", "figuras sin generar"), detail: `Faltan: ${sinFig.join(", ")}.`, section: "figuras" });
   if (!d.hasFinalBuild) add({ id: "version", severity: "advertencia", title: "Todavía no hay versión final aprobada", detail: "Las versiones salen con el encabezado BORRADOR hasta que un administrador apruebe.", section: "informe" });
+
+  for (const s of d.skipped ?? []) {
+    add({ id: `omitido:${s.id}`, severity: "advertencia", title: `Paso omitido: ${s.label}`,
+          detail: `Se dio por cumplido sin completarlo. Faltaba: ${s.detail}`, section: s.section });
+  }
 
   return out.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "critico" ? -1 : 1));
 }

@@ -35,6 +35,12 @@ export async function resetThresholds(projectId: string): Promise<void> {
   changed(res);
 }
 
+/** Pasos del recorrido que un admin da por cumplidos (la base rechaza el cambio si no es admin, 0021). */
+export async function setSkippedSteps(projectId: string, steps: string[]): Promise<void> {
+  const res = await createClient().from("projects").update({ skipped_steps: steps }).eq("id", projectId).select("id");
+  changed(res);
+}
+
 export async function getProject(id: string): Promise<ProjectRow> {
   const [row] = await cached(`project:${id}`, projectRowSchema, async () =>
     [must(await createClient().from("projects").select("*, clients(name)").eq("id", id).single())],

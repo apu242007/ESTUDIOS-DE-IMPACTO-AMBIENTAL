@@ -106,4 +106,12 @@ describe("control de calidad", () => {
   it("distancia: 1° de latitud ≈ 111 km", () => {
     expect(distanceKm({ lat: 0, lon: 0 }, { lat: 1, lon: 0 })).toBeCloseTo(111.2, 0);
   });
+
+  it("un paso omitido queda registrado como advertencia, con lo que faltaba", () => {
+    const f = runControl(con({ skipped: [{ id: "gps", label: "Cruce con el GPS", detail: "8 waypoints sin posición GPS.", section: "gps" }] }));
+    expect(f).toEqual([expect.objectContaining({
+      id: "omitido:gps", severity: "advertencia", title: "Paso omitido: Cruce con el GPS", section: "gps",
+    })]);
+    expect(f[0].detail).toContain("8 waypoints sin posición GPS");
+  });
 });

@@ -28,6 +28,8 @@ export type CheckItem = {
   done: boolean;
   /** Qué hacer (si falta) o resumen de lo hecho (si está listo). */
   detail: string;
+  /** Un admin lo dio por cumplido aunque faltaba (projects.skipped_steps): `done` es true y `detail` dice qué faltaba. */
+  skipped?: boolean;
 };
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
@@ -96,6 +98,10 @@ export function buildChecklist(c: Counts): CheckItem[] {
     },
   ];
 }
+
+/** Marca como cumplidos (y omitidos) los pasos pendientes que un admin decidió omitir. */
+export const applySkipped = (items: CheckItem[], skipped: readonly string[]): CheckItem[] =>
+  items.map((i) => (!i.done && skipped.includes(i.id) ? { ...i, done: true, skipped: true } : i));
 
 export const nextStep = (items: CheckItem[]): CheckItem | null => items.find((i) => !i.done) ?? null;
 export const progress = (items: CheckItem[]) => ({ done: items.filter((i) => i.done).length, total: items.length });

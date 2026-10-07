@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChecklist, nextStep, progress, sectionStatus, type Counts } from "./checklist";
+import { applySkipped, buildChecklist, nextStep, progress, sectionStatus, type Counts } from "./checklist";
 
 const vacio: Counts = {
   applicantOk: false, missingDatos: ["Razón social del solicitante"], works: 0, worksWithGeom: 0, layerStatuses: [],
@@ -75,5 +75,20 @@ describe("contenido del informe", () => {
     const listo = buildChecklist(completo);
     expect(listo.find((i) => i.id === "impactos")!.detail).toBe("132 impactos cargados.");
     expect(listo.find((i) => i.id === "pga")!.done).toBe(true);
+  });
+
+  it("un paso omitido cuenta como listo, deja de ser el siguiente y conserva su detalle", () => {
+    const faltaGps = { ...completo, waypointsMatched: 32 };
+    const items = applySkipped(buildChecklist(faltaGps), ["gps"]);
+    const gps = items.find((i) => i.id === "gps")!;
+    expect(gps).toMatchObject({ done: true, skipped: true });
+    expect(gps.detail).toContain("8 waypoints sin posición GPS");
+    expect(nextStep(items)).toBeNull();
+    expect(progress(items).done).toBe(progress(items).total);
+  });
+
+  it("omitir un paso ya listo no lo marca como omitido", () => {
+    const items = applySkipped(buildChecklist(completo), ["gps"]);
+    expect(items.find((i) => i.id === "gps")?.skipped).toBeFalsy();
   });
 });

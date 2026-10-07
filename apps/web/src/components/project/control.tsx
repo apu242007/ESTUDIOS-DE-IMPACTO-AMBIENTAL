@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { SectionId } from "@/lib/checklist";
 import { counts, runControl, type Finding } from "@/lib/control";
 import { loadControlData } from "@/lib/data/control";
+import { getChecklist } from "@/lib/data/summary";
 import type { ProjectRow } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
@@ -43,10 +44,14 @@ export function Control({ orgId, project, onGo }: { orgId: string; project: Proj
     staleTime: 0,
   });
 
+  // los pasos omitidos salen del mismo checklist que el Resumen (misma clave de caché)
+  const { data: items = [] } = useQuery({ queryKey: ["checklist", project.id], queryFn: () => getChecklist(project) });
+
   if (isLoading) return <p>Revisando el proyecto…</p>;
   if (error || !data) return <p role="alert" className="text-destructive">No se pudo revisar el proyecto. {error instanceof Error ? error.message : ""}</p>;
 
-  const hallazgos = runControl(data);
+  const skipped = items.filter((i) => i.skipped).map((i) => ({ id: i.id, label: i.label, detail: i.detail, section: i.section }));
+  const hallazgos = runControl({ ...data, skipped });
   const c = counts(hallazgos);
 
   return (

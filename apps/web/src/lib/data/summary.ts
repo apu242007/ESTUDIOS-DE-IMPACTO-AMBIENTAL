@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import type { ProjectRow } from "@/lib/schemas";
-import { buildChecklist, type CheckItem, type Counts } from "@/lib/checklist";
+import { applySkipped, buildChecklist, type CheckItem, type Counts } from "@/lib/checklist";
 
 const filled = (v: string | undefined) => !!v && v.trim() !== "";
 
@@ -56,5 +56,5 @@ export async function getChecklist(project: ProjectRow): Promise<CheckItem[]> {
     zoneKey: project.zone_key ?? null,
     measuresSelected: n(measures),
   };
-  return buildChecklist(counts);
+  return applySkipped(buildChecklist(counts), project.skipped_steps ?? []);
 }
