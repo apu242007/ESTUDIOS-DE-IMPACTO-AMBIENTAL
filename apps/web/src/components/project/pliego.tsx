@@ -8,6 +8,9 @@ import { porFase } from "@/lib/fases";
 import { marcasEste } from "@/lib/geo/coords";
 import type { ProjectRow } from "@/lib/schemas";
 
+/** Baja solo la inicial: "Cruce con el GPS" → "cruce con el GPS" (no rompe siglas). */
+export const minuscula = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
 const DOC_LABEL: Record<string, string> = { IA: "Informe ambiental", MTD: "Memoria técnica descriptiva" };
 
 /** Marcas de coordenadas Gauss-Krüger (Y, este) del área del proyecto en el borde del pliego, como el margen de una carta IGN. */
@@ -17,7 +20,7 @@ function MarcoGK({ projectId }: { projectId: string }) {
   return (
     <div aria-hidden="true" className="marco-gk pointer-events-none absolute inset-x-4 -top-5 flex justify-between font-heading text-[0.7rem] text-curva sm:inset-x-8">
       {marcasEste(c.lat, c.lon).map((y, i) => (
-        <span key={y} className="relative tnum after:absolute after:left-1/2 after:top-[1.05rem] after:h-2 after:w-px after:bg-curva max-sm:[&:nth-child(even)]:invisible" style={{ "--i": i } as React.CSSProperties}>
+        <span key={y} className="relative tnum after:absolute after:left-1/2 after:top-[1.05rem] after:h-2 after:w-px after:bg-curva max-sm:[&:not(:nth-child(4n+1))]:hidden" style={{ "--i": i } as React.CSSProperties}>
           {y.toLocaleString("es-AR")}
         </span>
       ))}
@@ -81,12 +84,12 @@ export function PliegoHeader({ project, items, children }: { project: ProjectRow
       {children}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
         <div>
-          <h1 className="max-w-[24ch] text-3xl font-extrabold leading-[1.08] sm:text-4xl xl:text-5xl">{project.name}</h1>
+          <h1 className="max-w-[24ch] text-2xl font-extrabold leading-[1.1] sm:text-4xl xl:text-5xl">{project.name}</h1>
           {total > 0 && (
             <p className="mt-3 max-w-prose text-base text-muted-foreground">
               {faltan === 0
                 ? "Todos los pasos están listos."
-                : `Faltan ${faltan} de ${total} pasos.${sigue ? ` Sigue: ${sigue.label.toLowerCase()}.` : ""}`}
+                : `Faltan ${faltan} de ${total} pasos.${sigue ? ` Sigue: ${minuscula(sigue.label)}.` : ""}`}
             </p>
           )}
         </div>

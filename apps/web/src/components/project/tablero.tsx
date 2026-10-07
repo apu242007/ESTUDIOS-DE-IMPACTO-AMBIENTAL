@@ -18,7 +18,7 @@ function Bloque({ titulo, dato, ayuda, children, onGo, ir, className }: {
   titulo: string; dato?: string; ayuda: string; children: React.ReactNode; onGo: () => void; ir: string; className?: string;
 }) {
   return (
-    <section className={cn("grid content-start gap-3", className)}>
+    <section className={cn("grid min-w-0 content-start gap-3", className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b-[1.5px] border-foreground pb-2">
         <h3 className="text-xl font-bold [font-stretch:100%]">{titulo}</h3>
         {dato && <span className="tnum font-heading text-sm text-muted-foreground">{dato}</span>}
@@ -160,7 +160,7 @@ function Matriz({ orgId, projectId }: { orgId: string; projectId: string }) {
   };
   return (
     <>
-      <div className="hidden overflow-x-auto md:block">
+      <div className="hidden min-w-0 overflow-x-auto md:block">
         <table className="border-separate [border-spacing:2px] text-xs">
           <thead>
             <tr>
@@ -232,7 +232,7 @@ export function Tablero({ orgId, projectId, thresholds, onGo }: { orgId: string;
       <Bloque titulo="Interferencias por tipo" ayuda="Lo que va a la tabla del informe, agrupado por figura." onGo={() => onGo("interferencias")} ir="Ver la tabla">
         <Interferencias orgId={orgId} projectId={projectId} />
       </Bloque>
-      <Bloque titulo="Matriz de impactos" ayuda="Acciones contra factores; el color es la importancia. En el celular, los impactos más fuertes." onGo={() => onGo("impactos")} ir="Abrir la matriz">
+      <Bloque className="lg:col-span-2" titulo="Matriz de impactos" ayuda="Acciones contra factores; el color es la importancia. En el celular, los impactos más fuertes." onGo={() => onGo("impactos")} ir="Abrir la matriz">
         <Matriz orgId={orgId} projectId={projectId} />
       </Bloque>
     </div>

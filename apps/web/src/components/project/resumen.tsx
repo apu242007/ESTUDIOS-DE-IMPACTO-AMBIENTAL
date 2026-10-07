@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Check, Minus } from "lucide-react";
+import { minuscula } from "@/components/project/pliego";
 import { Button } from "@/components/ui/button";
 import { nextStep, progress, type CheckItem, type SectionId } from "@/lib/checklist";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,7 @@ export function Resumen({
         {next && (
           <div className="flex flex-wrap gap-2">
             <Button size="lg" className="bg-foreground text-white hover:bg-foreground/90" onClick={() => onGo(next.section)}>
-              Ir a {next.label.toLowerCase()}
+              Ir a {minuscula(next.label)}
               <ArrowRight aria-hidden="true" />
             </Button>
             {canSkip && onSkip && (

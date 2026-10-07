@@ -63,7 +63,7 @@ function Hoja({ p, items, i, onDuplicate, canDuplicate }: {
   const listos = fases.reduce((a, f) => a + f.listos, 0);
   const total = fases.reduce((a, f) => a + f.total, 0);
   return (
-    <li className="enter relative grid content-start gap-3 bg-card p-4 transition-colors hover:bg-[#fbfaf7] sm:p-5" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
+    <li className="enter relative grid content-start gap-3 bg-card p-4 shadow-[0_0_0_1px_var(--border)] transition-colors hover:bg-[#fbfaf7] sm:p-5" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
       <span className="flex items-baseline justify-between gap-3 font-heading text-sm text-curva">
         <span className="tnum">{p.code ? `Expte. ${p.code}` : "Sin expediente"}</span>
         <span>{p.doc_type}</span>
@@ -228,10 +228,10 @@ export default function ProyectosPage() {
       </div>
 
       {/* Índice de hojas: cada proyecto es una hoja del pliego, separadas por la línea de la grilla */}
-      <ul aria-label="Proyectos" className="grid gap-px border bg-border [grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))]">
-        {isLoading && [0, 1, 2].map((i) => <li key={i} className="bg-card p-5"><Skeleton className="h-36" /></li>)}
+      <ul aria-label="Proyectos" className="grid gap-px p-px [grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))]">
+        {isLoading && [0, 1, 2].map((i) => <li key={i} className="bg-card p-5 shadow-[0_0_0_1px_var(--border)]"><Skeleton className="h-36" /></li>)}
         {!isLoading && rows.length === 0 && (
-          <li className="col-span-full bg-card px-5 py-10 text-center text-base text-muted-foreground">
+          <li className="col-span-full bg-card px-5 py-10 shadow-[0_0_0_1px_var(--border)] text-center text-base text-muted-foreground">
             {projects.length === 0 ? "Todavía no hay proyectos. Creá el primero con “Nuevo proyecto”." : "Ningún proyecto coincide con la búsqueda o el filtro."}
           </li>
         )}
