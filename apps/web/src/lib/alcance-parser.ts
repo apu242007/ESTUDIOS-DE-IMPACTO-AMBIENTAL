@@ -28,8 +28,11 @@ export const workKindLabel: Record<WorkKind, string> = {
   pozo_area: "Pozo / área de pozo",
 };
 
+/** Etiqueta de un tipo conocido; un tipo cargado a mano se muestra tal cual. */
+export const kindLabel = (k: string): string => workKindLabel[k as WorkKind] ?? k;
+
 export interface ParsedWork {
-  kind: WorkKind;
+  kind: string; // un WorkKind inferido, o lo que el usuario escribió a mano
   name: string;
   declared_length_m: number | null;
   declared_area_m2: number | null;

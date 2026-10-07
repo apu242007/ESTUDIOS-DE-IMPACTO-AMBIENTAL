@@ -1,7 +1,8 @@
 /** Cruces por proximidad: de un candidato que devuelve la base a la fila de waypoint "de gabinete". Sin IA. */
 
 export const CROSSING_DISTANCES = [10, 25, 50, 100] as const;
-export type CrossingDistance = (typeof CROSSING_DISTANCES)[number];
+/** Distancia de búsqueda en metros: una de la lista o una escrita a mano (1 a 1.000 m). */
+export type CrossingDistance = number;
 
 export type Crossing = {
   featureId: string;

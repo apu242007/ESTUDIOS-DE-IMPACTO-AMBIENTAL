@@ -9,30 +9,63 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectAdd } from "@/components/select-add";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  parseAlcance,
-  workKindLabel,
-  workKinds,
-  type ParsedWork,
-  type WorkKind,
-} from "@/lib/alcance-parser";
+import { kindLabel, parseAlcance, workKinds, type ParsedWork } from "@/lib/alcance-parser";
 import { errMsg } from "@/lib/data/util";
 import {
   addWorks,
   deleteWork,
   listWorks,
-  stageLabel,
   stages,
+  stageText,
   updateWork,
-  type Stage,
   type WorkPatch,
   type WorkRow,
 } from "@/lib/data/works";
 
 const fmt = (n: number | null) => (n === null ? "—" : n.toLocaleString("es-AR", { maximumFractionDigits: 1 }));
 const toNum = (v: string): number | null => (v.trim() === "" ? null : Number(v.replace(",", ".")));
+
+/** Valor escrito a mano en un desplegable: se devuelve tal cual (un dato libre, no un catálogo). */
+export const libre = async ([v]: string[]) => v;
+
+/** Cantidad de obras iguales: 1 a 12 en la lista, o cualquier entero ≥ 1 escrito a mano. */
+export async function cantidadLibre([v]: string[]): Promise<string> {
+  const n = Number(v.replace(",", "."));
+  if (!Number.isInteger(n) || n < 1) throw new Error("La cantidad debe ser un número entero mayor o igual a 1");
+  return String(n);
+}
+
+export function CantidadSelect({ value, label, onSave }: { value: number; label: string; onSave: (n: number) => void }) {
+  return (
+    <SelectAdd
+      className="h-11 w-full min-w-0 px-1.5 text-sm"
+      aria-label={label}
+      value={value}
+      onValue={(v) => onSave(Number(v))}
+      canAdd
+      addLabel="Otra…"
+      fields={["Cantidad"]}
+      title="Cantidad de obras iguales"
+      inputType="number"
+      onAdd={cantidadLibre}
+    >
+      {[...new Set([...Array.from({ length: 12 }, (_, i) => i + 1), value])].map((n) => <option key={n} value={n}>{n}</option>)}
+    </SelectAdd>
+  );
+}
+
+/** Tipo de obra: los conocidos más el actual si fue escrito a mano, y "Escribir otro…". */
+export function KindSelect({ value, onSave, className, label = "Tipo de obra" }: {
+  value: string; onSave: (k: string) => void; className?: string; label?: string;
+}) {
+  return (
+    <SelectAdd className={className} aria-label={label} value={value} onValue={onSave} canAdd addLabel="+ Escribir otro tipo…" fields={["Tipo de obra"]} onAdd={libre}>
+      {[...new Set<string>([...workKinds, value])].map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
+    </SelectAdd>
+  );
+}
 
 export function NumCell({
   value,
@@ -171,18 +204,7 @@ export function Alcance({ projectId }: { projectId: string }) {
               {works.map((w) => (
                 <tr key={w.id} className="border-t align-top">
                   <td data-label="Tipo" className="p-1.5">
-                    <NativeSelect
-                      className="h-11 w-full min-w-0 px-1.5 text-sm"
-                      aria-label="Tipo de obra"
-                      value={w.kind}
-                      onChange={(e) => save(w, { kind: e.target.value as WorkKind })}
-                    >
-                      {workKinds.map((k) => (
-                        <option key={k} value={k}>
-                          {workKindLabel[k]}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                    <KindSelect className="h-11 w-full min-w-0 px-1.5 text-sm" value={w.kind} onSave={(kind) => save(w, { kind })} />
                   </td>
                   <td data-label="Nombre" data-wide className="p-1.5">
                     <TextCell className="h-11 w-full min-w-0 px-1.5 text-sm" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
@@ -191,30 +213,27 @@ export function Alcance({ projectId }: { projectId: string }) {
                     <TextCell className="h-11 w-full min-w-0 px-1.5 text-sm" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
                   </td>
                   <td data-label="Etapa" className="p-1.5">
-                    <NativeSelect
+                    <SelectAdd
                       className="h-11 w-full min-w-0 px-1.5 text-sm"
                       aria-label="Etapa"
                       value={w.stage ?? ""}
-                      onChange={(e) => save(w, { stage: (e.target.value || null) as Stage | null })}
+                      onValue={(v) => save(w, { stage: v || null })}
+                      canAdd
+                      addLabel="+ Escribir otra etapa…"
+                      fields={["Etapa"]}
+                      onAdd={libre}
                     >
                       <option value="">—</option>
-                      {stages.map((s) => (
+                      {[...new Set<string>([...stages, ...(w.stage ? [w.stage] : [])])].map((s) => (
                         <option key={s} value={s}>
-                          {stageLabel[s]}
+                          {stageText(s)}
                         </option>
                       ))}
-                    </NativeSelect>
+                    </SelectAdd>
                   </td>
                   <td data-label="Cantidad" className="p-1.5">
                     {/* obras iguales declaradas juntas ("2 líneas de control"): lo declarado es por unidad */}
-                    <NativeSelect
-                      className="h-11 w-full min-w-0 px-1.5 text-sm"
-                      aria-label="Cantidad de obras iguales"
-                      value={w.quantity}
-                      onChange={(e) => save(w, { quantity: Number(e.target.value) })}
-                    >
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-                    </NativeSelect>
+                    <CantidadSelect value={w.quantity} label="Cantidad de obras iguales" onSave={(quantity) => save(w, { quantity })} />
                   </td>
                   <td data-label="Longitud declarada (m)" className="p-1.5">
                     <NumCell value={w.declared_length_m} label="Longitud declarada (por unidad)" onSave={(v) => save(w, { declared_length_m: v })} />
@@ -276,20 +295,12 @@ export function Alcance({ projectId }: { projectId: string }) {
             <div className="grid gap-2">
               {preview.map((p, i) => (
                 <div key={i} className="grid gap-2 rounded-lg border p-2 sm:grid-cols-[11rem_1fr_7rem_7rem_5rem_auto] sm:items-center">
-                  <NativeSelect
+                  <KindSelect
                     className="h-11"
-                    aria-label="Tipo"
+                    label="Tipo"
                     value={p.kind}
-                    onChange={(e) =>
-                      setPreview((rows) => rows.map((r, j) => (j === i ? { ...r, kind: e.target.value as WorkKind } : r)))
-                    }
-                  >
-                    {workKinds.map((k) => (
-                      <option key={k} value={k}>
-                        {workKindLabel[k]}
-                      </option>
-                    ))}
-                  </NativeSelect>
+                    onSave={(kind) => setPreview((rows) => rows.map((r, j) => (j === i ? { ...r, kind } : r)))}
+                  />
                   <Input
                     className="h-11"
                     aria-label="Nombre"

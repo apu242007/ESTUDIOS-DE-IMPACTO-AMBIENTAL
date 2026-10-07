@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
-import { workKinds, type ParsedWork } from "@/lib/alcance-parser";
+import { inferKind, type ParsedWork } from "@/lib/alcance-parser";
 import { cached, isNetworkError } from "@/lib/offline/cache";
 import { changed, must, ok } from "./util";
 
 export const stages = ["construccion", "perforacion", "complementarias", "operacion", "abandono"] as const;
 export type Stage = (typeof stages)[number];
+/** Etiqueta de una etapa conocida; una cargada a mano se muestra tal cual. */
+export const stageText = (s: string): string => stageLabel[s as Stage] ?? s;
 export const stageLabel: Record<Stage, string> = {
   construccion: "Construcción",
   perforacion: "Perforación",
@@ -18,10 +20,10 @@ const num = z.number().nullable();
 export const workRowSchema = z.object({
   id: z.string(),
   project_id: z.string(),
-  kind: z.enum(workKinds),
+  kind: z.string(), // conocido (workKinds) o cargado a mano (0029)
   name: z.string(),
   code: z.string().nullable(),
-  stage: z.enum(stages).nullable(),
+  stage: z.string().nullable(),
   sort_order: z.number(),
   declared_length_m: num,
   declared_area_m2: num,
@@ -58,6 +60,16 @@ export async function listWorks(projectId: string): Promise<WorkRow[]> {
     ),
     isNetworkError,
   );
+}
+
+/** Obra nueva escrita a mano desde un desplegable (Capas, Relevamiento): tipo inferido del nombre, sin medidas. */
+export async function createWork(projectId: string, name: string, sortOrder: number): Promise<string> {
+  const res = await createClient()
+    .from("works")
+    .insert({ project_id: projectId, name, kind: inferKind(name), sort_order: sortOrder })
+    .select("id")
+    .single();
+  return z.object({ id: z.string() }).parse(must(res)).id;
 }
 
 export async function addWorks(projectId: string, rows: ParsedWork[], startOrder: number) {

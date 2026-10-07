@@ -143,13 +143,20 @@ export function ProjectForm({
           </datalist>
         </Field>
         <Field label="Provincia *" error={errors.province?.message}>
-          <NativeSelect {...register("province")}>
-            {provinces.map((p) => (
+          <SelectAdd
+            value={watch("province")}
+            onValue={(v) => setValue("province", v, { shouldValidate: true })}
+            canAdd
+            addLabel="+ Escribir otra…"
+            fields={["Provincia"]}
+            onAdd={async ([v]) => v}
+          >
+            {[...new Set<string>([...provinces, ...(watch("province") ? [watch("province")] : [])])].map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>
             ))}
-          </NativeSelect>
+          </SelectAdd>
         </Field>
       </div>
 

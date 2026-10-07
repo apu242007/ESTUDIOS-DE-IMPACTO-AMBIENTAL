@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/native-select";
 import { CROSSING_DISTANCES, crossingDescription, defaultCode, type Crossing, type CrossingDistance } from "@/lib/cruces";
 import { SelectAdd } from "@/components/select-add";
 import { useAuth } from "@/lib/auth/auth-provider";
@@ -54,9 +53,15 @@ export function Cruces({ orgId, projectId }: { orgId: string; projectId: string 
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">Distancia máxima</span>
-          <NativeSelect className="w-40" value={dist} onChange={(e) => setDist(Number(e.target.value) as CrossingDistance)}>
-            {CROSSING_DISTANCES.map((d) => <option key={d} value={d}>{d} m</option>)}
-          </NativeSelect>
+          <SelectAdd className="w-40" value={dist} onValue={(v) => setDist(Number(v))} canAdd addLabel="Otra…" fields={["Distancia (m)"]}
+            title="Otra distancia de búsqueda" inputType="number"
+            onAdd={async ([v]) => {
+              const n = Number(v.replace(",", "."));
+              if (!(n > 0 && n <= 1000)) throw new Error("La distancia va de 1 a 1.000 m");
+              return String(n);
+            }}>
+            {[...new Set<number>([...CROSSING_DISTANCES, dist])].map((d) => <option key={d} value={d}>{d} m</option>)}
+          </SelectAdd>
         </label>
         <Button size="lg" variant="outline" disabled={search.isPending} onClick={() => search.mutate()}>
           {search.isPending ? "Buscando…" : "Buscar cruces"}

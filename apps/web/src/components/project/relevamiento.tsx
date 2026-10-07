@@ -10,14 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { SelectAdd } from "@/components/select-add";
 import { workKindLabel, workKinds } from "@/lib/alcance-parser";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCode } from "@/lib/data/admin";
 import { addPhotoCategory, listCodes, listPhotoCategories } from "@/lib/data/catalogs";
 import { errMsg } from "@/lib/data/util";
-import { listWorks } from "@/lib/data/works";
+import { createWork, listWorks } from "@/lib/data/works";
 import { formatDms } from "@/lib/geo/dms";
 import { getDb, type LineRec, type WaypointRec } from "@/lib/offline/db";
 import { DIRECTIONS, compressPhoto, joinViews, pickCategory, splitViews } from "@/lib/offline/photos";
@@ -337,10 +336,24 @@ function FichaEditor({ line, orgId, onBack, sync }: { line: LineRec; orgId: stri
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Obra del alcance</span>
-            <NativeSelect className="h-12" value={line.workId ?? ""} onChange={(e) => save({ workId: e.target.value || null })}>
+            {/* una obra nueva necesita señal: se crea en el alcance y queda elegida */}
+            <SelectAdd
+              className="h-12"
+              value={line.workId ?? ""}
+              onValue={(v) => save({ workId: v || null })}
+              canAdd
+              addLabel="+ Nueva obra…"
+              fields={["Nombre de la obra"]}
+              title="Nueva obra del alcance"
+              onAdd={async ([name]) => {
+                const id = await createWork(projectId, name, (works.at(-1)?.sort_order ?? 0) + 1);
+                await qc.invalidateQueries({ queryKey: ["works", projectId] });
+                return id;
+              }}
+            >
               <option value="">—</option>
               {works.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </NativeSelect>
+            </SelectAdd>
           </label>
           <div className="grid gap-2">
             <Txt label="Inicio" value={line.startLabel} onSave={(v) => save({ startLabel: v })} />

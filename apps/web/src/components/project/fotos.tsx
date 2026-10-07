@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { SelectAdd } from "@/components/select-add";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addPhotoCategory, listPhotoCategories } from "@/lib/data/catalogs";
@@ -81,8 +80,9 @@ function Foto({
 }
 
 /** Fotos sueltas (de gabinete o sin waypoint): varias a la vez, con una categoría. Las del campo van por Relevamiento. */
-function SubirFotos({ orgId, projectId, cats, onDone }: {
+function SubirFotos({ orgId, projectId, cats, onDone, canAdd, onAddCat }: {
   orgId: string; projectId: string; cats: { key: string; label: string }[]; onDone: () => void;
+  canAdd: boolean; onAddCat: (label: string) => Promise<string>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [categoria, setCategoria] = useState(cats[0]?.key ?? "otro");
@@ -112,9 +112,10 @@ function SubirFotos({ orgId, projectId, cats, onDone }: {
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">Categoría</span>
-          <NativeSelect className="h-11 w-64 max-w-full" value={cat} onChange={(e) => setCategoria(e.target.value)} disabled={!!avance}>
+          <SelectAdd className="h-11 w-64 max-w-full" value={cat} onValue={setCategoria} disabled={!!avance}
+            canAdd={canAdd} fields={["Categoría"]} onAdd={([label]) => onAddCat(label)}>
             {cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </NativeSelect>
+          </SelectAdd>
         </label>
         <input ref={input} type="file" accept="image/jpeg,image/png" multiple className="sr-only" id="fotos-sueltas"
           onChange={(e) => void subir([...(e.target.files ?? [])])} />
@@ -161,7 +162,7 @@ export function Fotos({ orgId, projectId }: { orgId: string; projectId: string }
   const label = (k: string) => cats.find((c) => c.key === k)?.label ?? k;
 
   if (isLoading) return <p>Cargando…</p>;
-  const subir = <SubirFotos orgId={orgId} projectId={projectId} cats={cats} onDone={refresh} />;
+  const subir = <SubirFotos orgId={orgId} projectId={projectId} cats={cats} onDone={refresh} canAdd={isAdmin} onAddCat={addCat} />;
   if (photos.length === 0) {
     return (
       <div className="grid gap-6">

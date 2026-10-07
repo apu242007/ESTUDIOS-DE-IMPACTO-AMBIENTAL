@@ -5,16 +5,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/confirm";
-import { NumCell } from "@/components/project/alcance";
+import { CantidadSelect, NumCell } from "@/components/project/alcance";
 import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import type { SectionId } from "@/lib/checklist";
 import { setThresholds } from "@/lib/data/projects";
 import { errMsg } from "@/lib/data/util";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { workKindLabel, type WorkKind } from "@/lib/alcance-parser";
+import { kindLabel } from "@/lib/alcance-parser";
 import { listCompare } from "@/lib/data/features";
 import { deleteWork, updateWork, type WorkPatch } from "@/lib/data/works";
 import { thresholdsSchema, verdict, type Thresholds, type Verdict } from "@/lib/threshold";
@@ -125,12 +124,9 @@ export function Comparacion({ projectId, thresholds, onGo }: { projectId: string
                 return (
                   <tr key={r.id} className="enter border-t align-middle" style={{ "--i": Math.min(idx, 12) } as React.CSSProperties}>
                     <td data-label="Obra" data-wide className="p-1.5 font-medium">{r.name}</td>
-                    <td data-label="Tipo" className="p-1.5">{workKindLabel[r.kind as WorkKind] ?? r.kind}</td>
+                    <td data-label="Tipo" className="p-1.5">{kindLabel(r.kind)}</td>
                     <td data-label="Cantidad" className="p-1.5">
-                      <NativeSelect className="h-11 w-full min-w-0 px-1.5 text-sm" aria-label={`Cantidad de ${r.name}`} value={r.quantity}
-                        onChange={(e) => save.mutate({ id: r.id, patch: { quantity: Number(e.target.value) } })}>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-                      </NativeSelect>
+                      <CantidadSelect value={r.quantity} label={`Cantidad de ${r.name}`} onSave={(quantity) => save.mutate({ id: r.id, patch: { quantity } })} />
                     </td>
                     <td data-label={`Declarado por unidad (${unit})`} className="p-1.5">
                       <NumCell key={`${r.id}-${unidad}`} value={unidad} label={`Declarado de ${r.name} (${unit})`}

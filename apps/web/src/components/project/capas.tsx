@@ -8,10 +8,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectAdd } from "@/components/select-add";
 import { createWellsFromImport, linkFeature, listFeatures } from "@/lib/data/features";
 import { errMsg } from "@/lib/data/util";
-import { listWorks, type WorkRow } from "@/lib/data/works";
+import { createWork, listWorks, type WorkRow } from "@/lib/data/works";
 import {
   deleteImport,
   listLayerImports,
@@ -36,18 +36,29 @@ function CrsConfirm({ imp, onConfirm, busy }: { imp: LayerImport; onConfirm: (ep
   const [epsg, setEpsg] = useState<number>(crsOptions[0].epsg);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <NativeSelect
+      <SelectAdd
         className="h-12 w-full sm:w-72"
         aria-label="Sistema de coordenadas de la capa"
         value={epsg}
-        onChange={(e) => setEpsg(Number(e.target.value))}
+        onValue={(v) => setEpsg(Number(v))}
+        canAdd
+        addLabel="+ Escribir otro código EPSG…"
+        fields={["Código EPSG"]}
+        title="Otro sistema de coordenadas"
+        inputType="number"
+        onAdd={async ([v]) => {
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 1024 || n > 999999) throw new Error("El código EPSG es un número entero (ej. 22182)");
+          return String(n);
+        }}
       >
         {crsOptions.map((o) => (
           <option key={o.epsg} value={o.epsg}>
             {o.label}
           </option>
         ))}
-      </NativeSelect>
+        {!crsOptions.some((o) => o.epsg === epsg) && <option value={epsg}>EPSG:{epsg}</option>}
+      </SelectAdd>
       <Button size="lg" className="h-12" disabled={busy} onClick={() => onConfirm(epsg)}>
         Confirmar y procesar
       </Button>
@@ -100,11 +111,16 @@ function Elementos({ imp, projectId, works }: { imp: LayerImport; projectId: str
             {f.area_m2 !== null && `${f.area_m2.toLocaleString("es-AR", { maximumFractionDigits: 0 })} m²`}
             {f.length_m === null && f.area_m2 === null && "punto"}
           </span>
-          <NativeSelect
+          <SelectAdd
             className="h-12"
             aria-label={`Obra de ${f.name ?? "elemento"}`}
             value={f.work_id ?? ""}
-            onChange={(e) => link.mutate({ id: f.id, workId: e.target.value || null })}
+            onValue={(v) => link.mutate({ id: f.id, workId: v || null })}
+            canAdd
+            addLabel="+ Nueva obra…"
+            fields={["Nombre de la obra"]}
+            title="Nueva obra del alcance"
+            onAdd={([name]) => createWork(projectId, name, (works.at(-1)?.sort_order ?? 0) + 1)}
           >
             <option value="">Sin vincular</option>
             {works.map((w) => (
@@ -112,7 +128,7 @@ function Elementos({ imp, projectId, works }: { imp: LayerImport; projectId: str
                 {w.name}
               </option>
             ))}
-          </NativeSelect>
+          </SelectAdd>
         </div>
       ))}
     </div>
