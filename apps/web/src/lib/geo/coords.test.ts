@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromPosgarFaja2, toPosgarFaja2 } from "./coords";
+import { fromPosgarFaja2, toPosgarFaja2, marcasEste } from "./coords";
 
 const LAT = -(38 + 7 / 60 + 47.78 / 3600);
 const LON = -(68 + 34 / 60 + 8.97 / 3600);
@@ -29,5 +29,12 @@ describe("POSGAR faja 2 (EPSG:22182)", () => {
     const r = fromPosgarFaja2(x, y);
     expect(r.lat).toBeCloseTo(LAT, 9);
     expect(r.lon).toBeCloseTo(LON, 9);
+  });
+});
+
+describe("marcas del marco del pliego", () => {
+  it("devuelve Y (este) cada 500 m alrededor del centro, redondeadas al múltiplo", () => {
+    const t = marcasEste(-(38 + 7 / 60 + 47.78 / 3600), -(68 + 34 / 60 + 8.97 / 3600)); // Y ≈ 2.537.775
+    expect(t).toEqual([2535500, 2536000, 2536500, 2537000, 2537500, 2538000, 2538500, 2539000, 2539500]);
   });
 });

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CloudOff, FolderOpen, LogOut, Settings2, UploadCloud, Users } from "lucide-react";
-import { Mark } from "@/components/brand";
 import { useConfirm } from "@/components/confirm";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useAuth } from "@/lib/auth/auth-provider";
@@ -100,9 +99,12 @@ function Shell({ orgId, children }: { orgId: string; children: React.ReactNode }
       {/* Barra superior de basalto: el menú ya no ocupa una columna, el contenido y las tablas usan todo el ancho */}
       <header className="sticky top-0 z-30 bg-sidebar text-sidebar-foreground">
         <div className="mx-auto flex min-h-14 max-w-[96rem] items-center gap-3 px-4 sm:gap-5 sm:px-8">
-          <Link href="/proyectos" className="flex items-center gap-2 py-1 text-jarilla">
-            <Mark className="mark-draw size-8" />
-            <span className="font-heading text-2xl font-semibold leading-none tracking-tight text-white">EIA</span>
+          <Link href="/proyectos" className="flex items-center gap-3 py-1" aria-label="EIA, ir a Proyectos">
+            <span className="font-heading text-2xl font-extrabold leading-none tracking-wide text-white [font-stretch:125%]">EIA</span>
+            {/* escala gráfica de plano: la marca del Pliego de campo */}
+            <span aria-hidden="true" className="escala hidden h-1.5 w-16 grid-cols-4 border border-white sm:grid">
+              <i className="bg-white" /><i /><i className="bg-white" /><i />
+            </span>
           </Link>
           <nav aria-label="Principal" className="hidden gap-1 md:flex">
             {items.map((n) => {
@@ -120,7 +122,7 @@ function Shell({ orgId, children }: { orgId: string; children: React.ReactNode }
                 >
                   <Icon aria-hidden="true" className="size-5 shrink-0" />
                   {n.label}
-                  {active && <span aria-hidden="true" className="absolute inset-x-3 bottom-1 h-[3px] grow-x rounded-full bg-jarilla" />}
+                  {active && <span aria-hidden="true" className="absolute inset-x-3 bottom-1 h-[3px] grow-x rounded-full bg-senal" />}
                 </Link>
               );
             })}

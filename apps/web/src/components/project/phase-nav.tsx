@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MotionConfig, motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { GROUPS, flatSections } from "@/components/project/sections";
@@ -41,6 +42,7 @@ export function PhaseNav({ section, status, isAdmin, onGo }: Props) {
   const activeGroup = groups.find((g) => g.items.some((i) => i.id === section)) ?? groups[0];
 
   return (
+    <MotionConfig reducedMotion="user">
     <nav
       aria-label="Secciones del proyecto"
       className="-mx-4 border-b-2 border-basalto bg-background px-4 pt-2 sm:-mx-8 sm:px-8 md:sticky md:top-14 md:z-20"
@@ -55,19 +57,27 @@ export function PhaseNav({ section, status, isAdmin, onGo }: Props) {
                 type="button"
                 onClick={() => onGo(g.items[0].id)}
                 aria-current={active ? "step" : undefined}
-                className={cn(
-                  "-mb-0.5 grid w-full cursor-pointer gap-1.5 border-b-[3px] pb-2 pt-1 text-left transition-colors",
-                  active ? "border-jarilla" : "border-transparent hover:border-border",
-                )}
+                className="group relative -mb-0.5 grid w-full cursor-pointer gap-1.5 pb-2.5 pt-1 text-left"
               >
+                {/* la marca amarilla de la fase activa se desliza entre fases (muestra qué cambió) */}
+                {active ? (
+                  <motion.span
+                    layoutId="fase-activa"
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-[3px] bg-senal"
+                    transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                  />
+                ) : (
+                  <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[3px] bg-transparent transition-colors group-hover:bg-border" />
+                )}
                 {/* en 360 px seis nombres no entran: solo las barras (la fase se lee en la barra inferior) */}
                 <span className={cn("flex min-w-0 items-baseline justify-between gap-2 whitespace-nowrap font-semibold", active ? "text-foreground" : "text-muted-foreground")}>
                   <span className="sr-only sm:not-sr-only sm:truncate sm:text-base">{g.title}</span>
-                  {total > 0 && <span className="tnum hidden font-mono text-xs font-medium md:inline">{ok}/{total}</span>}
+                  {total > 0 && <span className="tnum hidden font-heading text-xs font-medium md:inline">{ok}/{total}</span>}
                 </span>
-                <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-border">
+                <span aria-hidden="true" className="h-1.5 overflow-hidden bg-border">
                   <span
-                    className="fill-x block h-full rounded-full bg-ok transition-[width] duration-500"
+                    className="fill-x block h-full bg-ok transition-[width] duration-500"
                     style={{ width: `${total > 0 ? (ok / total) * 100 : 0}%` }}
                   />
                 </span>
@@ -102,6 +112,7 @@ export function PhaseNav({ section, status, isAdmin, onGo }: Props) {
         })}
       </div>
     </nav>
+    </MotionConfig>
   );
 }
 

@@ -69,3 +69,9 @@ export async function loadControlData(orgId: string, project: ProjectRow): Promi
     hasFinalBuild: ((must(finals) as unknown[]) ?? []).length > 0,
   };
 }
+
+/** Centro del proyecto (obras, capas o waypoints) para el marco GK del pliego; null si todavía no hay geometría. */
+export async function getProjectCenter(projectId: string): Promise<{ lon: number; lat: number } | null> {
+  const r = await createClient().rpc("project_center", { p_project: projectId });
+  return parseAll(centerSchema, (must(r) as unknown[]) ?? [])[0] ?? null;
+}

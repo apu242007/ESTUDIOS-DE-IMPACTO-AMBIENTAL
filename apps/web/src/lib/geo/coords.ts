@@ -70,3 +70,10 @@ export function fromPosgarFaja2(x: number, y: number): { lat: number; lon: numbe
   const lam = LON0 + Math.atan2(Math.sinh(eta0), Math.cos(xi0));
   return { lat: (phi * 180) / Math.PI, lon: (lam * 180) / Math.PI };
 }
+
+/** Marcas del marco del pliego: Y (este) GK cada `paso` metros alrededor del punto, como el margen de una carta IGN. */
+export function marcasEste(lat: number, lon: number, paso = 500, cantidad = 9): number[] {
+  const base = Math.floor(toPosgarFaja2(lat, lon).y / paso) * paso;
+  const desde = base - Math.floor(cantidad / 2) * paso;
+  return Array.from({ length: cantidad }, (_, i) => desde + i * paso);
+}

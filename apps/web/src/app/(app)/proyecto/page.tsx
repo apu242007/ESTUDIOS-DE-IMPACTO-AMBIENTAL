@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { z } from "zod";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,10 +34,11 @@ import { Mapa } from "@/components/project/mapa";
 import { Relevamiento } from "@/components/project/relevamiento";
 import { Resumen } from "@/components/project/resumen";
 import { MobileSectionBar, PhaseNav } from "@/components/project/phase-nav";
+import { PliegoHeader } from "@/components/project/pliego";
 import { SECTION_HELP, flatSections, isSection } from "@/components/project/sections";
 import { getChecklist } from "@/lib/data/summary";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
-import { progress, sectionStatus, type CheckItem, type SectionId } from "@/lib/checklist";
+import { sectionStatus, type CheckItem, type SectionId } from "@/lib/checklist";
 import { DEFAULT_THRESHOLDS, parseThresholds, thresholdsValid } from "@/lib/threshold";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addCadastre, deleteCadastre, getProject, listCadastre, resetThresholds, setSkippedSteps } from "@/lib/data/projects";
@@ -207,23 +207,11 @@ function ProjectDetail() {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5 pb-20 md:pb-0">
-      <header className="pb-1">
-        <Link href="/proyectos" className="inline-flex min-h-11 items-center gap-1 text-base text-muted-foreground hover:text-foreground">
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          Proyectos
-        </Link>
-        <h1 className="max-w-4xl font-heading text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">{project.name}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
-          <span className="font-medium text-foreground">{project.clients?.name}</span>
-          <Badge variant="secondary">{project.doc_type}</Badge>
-          {project.code && <span className="tnum font-mono">{project.code}</span>}
-          {items.length > 0 && (
-            <span className="tnum ml-auto text-sm" aria-live="polite">
-              {progress(items).done} de {progress(items).total} pasos listos
-            </span>
-          )}
-        </div>
-      </header>
+      <Link href="/proyectos" className="-mb-2 inline-flex min-h-11 items-center gap-1 justify-self-start text-base text-muted-foreground hover:text-foreground">
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Proyectos
+      </Link>
+      <PliegoHeader project={project} items={items} />
 
       {!online && (
         <div role="status" className="grid gap-3 rounded-md border-2 border-jarilla bg-jarilla/15 p-3 text-base sm:flex sm:items-center">
