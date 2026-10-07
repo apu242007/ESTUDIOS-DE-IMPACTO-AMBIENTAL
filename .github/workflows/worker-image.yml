@@ -1,0 +1,34 @@
+# Imagen del worker con LibreOffice, GPSBabel, fuentes y dependencias de Python ya instaladas.
+# El workflow "Worker (cola de trabajos)" corre adentro de esta imagen con el código del repo: no instala nada en cada
+# corrida (instalar LibreOffice dependía del espejo de Ubuntu y a veces tardaba más de 7 min).
+# Se reconstruye solo cuando cambian el Dockerfile o las dependencias.
+name: Imagen del worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - apps/worker/Dockerfile
+      - apps/worker/requirements.txt
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  imagen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/worker
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/eia-worker:latest
