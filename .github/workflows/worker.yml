@@ -1,5 +1,7 @@
 # Worker en la nube: procesa la cola (capas, GPS, informes, figuras) sin depender de una PC encendida.
 # Lo dispara la base al entrar un trabajo (migración 0025, workflow_dispatch) y, de respaldo, cada 15 minutos.
+# Corre adentro de la imagen del worker (workflow "Imagen del worker"), que ya trae LibreOffice, GPSBabel, fuentes y las
+# dependencias de Python: no instala nada en cada corrida y arranca en segundos.
 # Secreto requerido: SUPABASE_SERVICE_ROLE_KEY. Variable: NEXT_PUBLIC_SUPABASE_URL (la misma que usa la web).
 name: Worker (cola de trabajos)
 
@@ -8,38 +10,29 @@ on:
   schedule:
     - cron: "*/15 * * * *"
 
-# una sola pasada a la vez: dos workers reclamando la misma cola no se pisan (claim_job usa SKIP LOCKED),
-# pero así no se gastan minutos en paralelo; una pasada nueva espera a la que está corriendo
+# una sola pasada a la vez: una nueva espera a la que está corriendo (claim_job igual evita pisarse)
 concurrency:
   group: worker-cola
   cancel-in-progress: false
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   procesar:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/eia-worker:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     defaults:
       run:
         working-directory: apps/worker
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: apps/worker/requirements.txt
-
-      - name: LibreOffice (PDF), GPSBabel (.gdb) y fuentes
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends libreoffice-writer gpsbabel fonts-liberation fonts-dejavu-core
-
-      - name: Dependencias del worker
-        run: pip install -r requirements.txt
 
       - name: Procesar la cola
         env:
