@@ -8,6 +8,9 @@ from fastapi import FastAPI
 
 from app.jobs.poller import poll_forever
 
+# Sin esto, los INFO del worker (trabajos tomados) no salen en worker.log y una caída no deja rastro.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # una línea por consulta a Supabase: ruido
 log = logging.getLogger("eia.worker")
 
 

@@ -101,3 +101,27 @@ def test_gps_con_ruta_de_otra_organizacion_no_se_descarga() -> None:
                     "file_path": AJENA.replace("layers", "gps").replace("capa.shp", "t.gpx")})
     assert c.storage.downloads == []
     assert c.updates[-1][1]["status"] == "error"
+
+
+def test_cada_trabajo_reclamado_queda_en_el_log(caplog: Any) -> None:
+    import logging
+    from app.jobs import poller
+
+    class C:
+        def rpc(self, _f: str, p: dict[str, str]) -> "C":
+            self._t = p["p_table"]
+            return self
+
+        def execute(self) -> Any:
+            return type("R", (), {"data": {"id": "g1"} if self._t == "gps_imports" else None})()
+
+    vistos: list[str] = []
+    orig = poller.run_gps_job
+    poller.run_gps_job = lambda _c, j: vistos.append(j["id"])  # type: ignore[assignment]
+    try:
+        with caplog.at_level(logging.INFO, logger="eia.worker"):
+            assert poller.poll_once(C()) is True
+    finally:
+        poller.run_gps_job = orig
+    assert vistos == ["g1"]
+    assert "gps_imports g1" in caplog.text

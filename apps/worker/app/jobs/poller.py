@@ -140,7 +140,9 @@ def poll_once(client: Any) -> bool:
                        ("document_builds", run_docs_job), ("figure_builds", run_figure_job)):
         job = client.rpc("claim_job", {"p_table": table}).execute().data
         if job:
+            log.info("procesando %s %s", table, job.get("id"))
             run(client, job)
+            log.info("terminado %s %s", table, job.get("id"))
             return True
     return False
 
@@ -156,6 +158,7 @@ def requeue_orphans(client: Any) -> None:
 
 
 def poll_forever(client: Any, poll_seconds: float, stop: threading.Event) -> None:
+    log.info("sondeo de trabajos activo cada %.0f s", poll_seconds)
     try:
         requeue_orphans(client)
     except Exception:
