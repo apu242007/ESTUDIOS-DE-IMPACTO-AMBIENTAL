@@ -9,6 +9,12 @@ describe("estado del worker según su latido", () => {
     expect(estadoWorker("2026-10-07T11:55:00Z", ahora)).toBe("apagado");
     expect(estadoWorker(null, ahora)).toBe("apagado");
   });
+
+  it("con la PC apagada, si el worker de la nube (GitHub Actions) corrió en la última hora, se procesa en minutos", () => {
+    expect(estadoWorker("2026-10-06T10:00:00Z", ahora, "2026-10-07T11:50:00Z")).toBe("nube");
+    expect(estadoWorker("2026-10-06T10:00:00Z", ahora, "2026-10-07T09:00:00Z")).toBe("apagado"); // hace 3 h: dejó de correr
+    expect(estadoWorker("2026-10-07T11:59:50Z", ahora, "2026-10-07T11:50:00Z")).toBe("vivo");  // la PC manda si está viva
+  });
 });
 
 describe("tiempo en cola", () => {

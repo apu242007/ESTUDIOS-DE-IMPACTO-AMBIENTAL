@@ -1,8 +1,16 @@
 /** Cola de trabajos del worker (capas, GPS, informes, figuras): ¿el procesador está encendido? */
 
-/** El worker escribe su latido cada 30 s (worker_heartbeat, 0023): sin señales en 90 s se considera apagado. */
-export function estadoWorker(seenAt: string | null, ahora = Date.now()): "vivo" | "apagado" {
-  return seenAt !== null && ahora - new Date(seenAt).getTime() < 90_000 ? "vivo" : "apagado";
+/**
+ * Estado del procesador según los latidos (worker_heartbeat, 0023):
+ * - "vivo": el worker de la PC dio señales en los últimos 90 s (escribe cada 30 s): lo toma en segundos.
+ * - "nube": la PC no está, pero el worker de GitHub Actions corrió en la última hora (corre al entrar un trabajo
+ *   y cada 15 min): se procesa en unos minutos.
+ * - "apagado": ninguno de los dos.
+ */
+export function estadoWorker(seenPc: string | null, ahora = Date.now(), seenNube: string | null = null): "vivo" | "nube" | "apagado" {
+  if (seenPc !== null && ahora - new Date(seenPc).getTime() < 90_000) return "vivo";
+  if (seenNube !== null && ahora - new Date(seenNube).getTime() < 60 * 60_000) return "nube";
+  return "apagado";
 }
 
 export function haceCuanto(desde: string, ahora = Date.now()): string {

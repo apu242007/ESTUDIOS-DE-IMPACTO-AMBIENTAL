@@ -11,7 +11,16 @@ const COMANDO = String.raw`powershell -ExecutionPolicy Bypass -File apps\worker\
 export function EnCola() {
   const { data: seen, isLoading } = useQuery({ queryKey: ["worker-seen"], queryFn: getWorkerSeen, refetchInterval: 15_000 });
   if (isLoading) return null;
-  if (estadoWorker(seen ?? null) === "vivo") {
+  const estado = estadoWorker(seen?.pc ?? null, Date.now(), seen?.nube ?? null);
+  if (estado === "nube") {
+    return (
+      <p role="status" className="flex items-center gap-2 text-sm">
+        <span aria-hidden="true" className="size-2.5 rounded-full bg-primary" />
+        Se procesa en la nube en unos minutos; no hace falta dejar la página abierta.
+      </p>
+    );
+  }
+  if (estado === "vivo") {
     return (
       <p role="status" className="flex items-center gap-2 text-sm">
         <span aria-hidden="true" className="relative flex size-2.5">
@@ -26,7 +35,7 @@ export function EnCola() {
     <div role="alert" className="grid gap-2 border border-warn bg-warn/5 p-3 text-sm">
       <p>
         <strong>El procesador está apagado</strong>
-        {seen ? ` (última señal ${haceCuanto(seen)})` : ""}. Este archivo está en cola y se procesa solo cuando se encienda.
+        {seen?.pc ? ` (última señal ${haceCuanto(seen.pc)})` : ""}. Este archivo está en cola y se procesa solo cuando se encienda.
       </p>
       <p>
         Encendelo en la PC de la consultora con:{" "}
