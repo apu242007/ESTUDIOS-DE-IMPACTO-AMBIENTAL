@@ -475,7 +475,7 @@ MAX_UPLOAD = 50 * 1024 * 1024  # límite por archivo de Storage del plan
 # Las fotos son casi todo el DOCX: si su suma pasa esto, se achican ANTES de armar el documento (antes se armaba,
 # se medía y se volvía a armar entero: con 300 fotos eso duplicaba el tiempo). Deja ~10 MB para texto y figuras.
 PHOTO_BUDGET = 40 * 1024 * 1024
-WORKERS = 8  # descargas y compresiones en paralelo (red y Pillow liberan el GIL)
+WORKERS = 4  # descargas y compresiones en paralelo (red y Pillow liberan el GIL)
 
 
 def shrink_photos(px: int, q: int) -> tuple[int, int]:
@@ -645,14 +645,20 @@ def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: 
         except Exception as e:  # en borrador se informa; la versión final falla después de reunir todas las omisiones
             return f"Foto omitida ({ph['path_original']}): {e}"
 
-    out: list[dict[str, Any]] = []
     with ThreadPoolExecutor(WORKERS) as ex:  # en paralelo, pero el resultado conserva el orden del anexo
-        for r in ex.map(una, todas):
-            if isinstance(r, str):
-                log.append(r)
-                ctx.setdefault("_omitted", []).append(r)
-            else:
-                out.append(r)
+        res = list(ex.map(una, todas))
+    # la conexión HTTP/2 compartida a veces corta descargas simultáneas: las que fallaron se reintentan de a una
+    for i, ph in enumerate(todas):
+        for _ in range(2):
+            if isinstance(res[i], str) and ph.get("path_original"):
+                res[i] = una(ph)
+    out: list[dict[str, Any]] = []
+    for r in res:
+        if isinstance(r, str):
+            log.append(r)
+            ctx.setdefault("_omitted", []).append(r)
+        else:
+            out.append(r)
     return out
 
 

@@ -414,3 +414,23 @@ def test_fotos_se_achican_antes_de_armar_el_docx(monkeypatch: pytest.MonkeyPatch
     px, q = docs.fit_photos(photos, 1200, 75, log)
     assert px <= 600 and q < 75 and log
     assert all(max(Image.open(io.BytesIO(p["jpeg"])).size) <= px for p in photos)
+
+
+def test_descarga_que_falla_una_vez_se_reintenta() -> None:
+    class Flaky(FakeClient):
+        def __init__(self, *a: Any) -> None:
+            super().__init__(*a)
+            self.fallas = set(self.files)  # cada foto falla la primera vez, como la conexión HTTP/2 compartida
+
+        def download(self, p: str) -> bytes:
+            if p in self.fallas:
+                self.fallas.discard(p)
+                raise ConnectionError("ConnectionTerminated")
+            return super().download(p)
+
+    files = {f"o/p/photos/{i}.jpg": jpeg() for i in range(6)}
+    ctx = {"_org": "o", "photo_categories": [{"key": "c", "label": "C"}],
+           "photos": [{"category": "c", "path_original": k, "caption": None} for k in files]}
+    log: list[str] = []
+    out = docs._load_photos(Flaky({}, files), ctx, {"photo_max_px": 800, "jpeg_quality": 70}, log)
+    assert len(out) == 6 and not log and not ctx.get("_omitted")
