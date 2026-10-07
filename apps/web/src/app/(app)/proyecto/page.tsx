@@ -274,7 +274,7 @@ function ProjectDetail() {
           {section === "capas" && <Capas orgId={orgId} projectId={project.id} />}
           {section === "relevamiento" && <Relevamiento orgId={orgId} projectId={project.id} />}
           {section === "gps" && <Gps orgId={orgId} projectId={project.id} />}
-          {section === "comparacion" && <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} />}
+          {section === "comparacion" && <Comparacion projectId={project.id} thresholds={parseThresholds(project.thresholds)} onGo={go} />}
           {section === "mapa" && <Mapa projectId={project.id} />}
           {section === "figuras" && <Figuras projectId={project.id} />}
           {section === "interferencias" && <Interferencias orgId={orgId} projectId={project.id} />}

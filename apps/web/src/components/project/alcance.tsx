@@ -125,7 +125,7 @@ export function Alcance({ projectId }: { projectId: string }) {
           className="h-11"
           onClick={() =>
             add.mutate([
-              { kind: "camino", name: "Nueva obra", declared_length_m: null, declared_area_m2: null, diameter_in: null },
+              { kind: "camino", name: "Nueva obra", declared_length_m: null, declared_area_m2: null, diameter_in: null, quantity: 1 },
             ])
           }
         >
@@ -138,10 +138,10 @@ export function Alcance({ projectId }: { projectId: string }) {
 
       <Card>
         <CardContent className="overflow-x-auto p-2">
-          <table className="w-full min-w-[68rem] text-sm">
+          <table className="w-full min-w-[73rem] text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
-                {["Tipo", "Nombre", "Código", "Etapa", "Long. decl. (m)", "Sup. decl. (m²)", "Ø (pulg)", "Material", "Medido", ""].map((h) => (
+                {["Tipo", "Nombre", "Código", "Etapa", "Cant.", "Long. decl. (m)", "Sup. decl. (m²)", "Ø (pulg)", "Material", "Medido", ""].map((h) => (
                   <th key={h} className="p-2 font-medium">
                     {h}
                   </th>
@@ -151,14 +151,14 @@ export function Alcance({ projectId }: { projectId: string }) {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={10} className="p-4">
+                  <td colSpan={11} className="p-4">
                     Cargando…
                   </td>
                 </tr>
               )}
               {!isLoading && works.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="p-6 text-center text-muted-foreground">
+                  <td colSpan={11} className="p-6 text-center text-muted-foreground">
                     Sin obras. Agregalas una por una o pegá el listado del alcance.
                   </td>
                 </tr>
@@ -201,7 +201,18 @@ export function Alcance({ projectId }: { projectId: string }) {
                     </NativeSelect>
                   </td>
                   <td className="p-2">
-                    <NumCell value={w.declared_length_m} label="Longitud declarada" onSave={(v) => save(w, { declared_length_m: v })} />
+                    {/* obras iguales declaradas juntas ("2 líneas de control"): lo declarado es por unidad */}
+                    <NativeSelect
+                      className="h-11 w-20"
+                      aria-label="Cantidad de obras iguales"
+                      value={w.quantity}
+                      onChange={(e) => save(w, { quantity: Number(e.target.value) })}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                    </NativeSelect>
+                  </td>
+                  <td className="p-2">
+                    <NumCell value={w.declared_length_m} label="Longitud declarada (por unidad)" onSave={(v) => save(w, { declared_length_m: v })} />
                   </td>
                   <td className="p-2">
                     <NumCell value={w.declared_area_m2} label="Superficie declarada" onSave={(v) => save(w, { declared_area_m2: v })} />

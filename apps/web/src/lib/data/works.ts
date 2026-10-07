@@ -30,18 +30,20 @@ export const workRowSchema = z.object({
   description: z.string().nullable(),
   geom_length_m: num,
   geom_area_m2: num,
+  // obras iguales declaradas juntas (0026); default para copias offline guardadas antes de la columna
+  quantity: z.number().int().min(1).default(1),
 });
 export type WorkRow = z.infer<typeof workRowSchema>;
 export type WorkPatch = Partial<
   Pick<
     WorkRow,
     | "kind" | "name" | "code" | "stage" | "sort_order" | "declared_length_m" | "declared_area_m2"
-    | "diameter_in" | "material" | "description"
+    | "diameter_in" | "material" | "description" | "quantity"
   >
 >;
 
 const COLS =
-  "id, project_id, kind, name, code, stage, sort_order, declared_length_m, declared_area_m2, diameter_in, material, description, geom_length_m, geom_area_m2";
+  "id, project_id, kind, name, code, stage, sort_order, declared_length_m, declared_area_m2, diameter_in, material, description, geom_length_m, geom_area_m2, quantity";
 
 /** Con copia en el teléfono (solo se usa sin red): la ficha de campo ofrece las obras aunque no haya señal. */
 export async function listWorks(projectId: string): Promise<WorkRow[]> {
@@ -66,6 +68,7 @@ export async function addWorks(projectId: string, rows: ParsedWork[], startOrder
     declared_length_m: r.declared_length_m,
     declared_area_m2: r.declared_area_m2,
     diameter_in: r.diameter_in,
+    quantity: r.quantity,
     sort_order: startOrder + i + 1,
   }));
   ok(await createClient().from("works").insert(payload));

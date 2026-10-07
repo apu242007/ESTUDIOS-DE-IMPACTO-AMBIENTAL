@@ -8,7 +8,7 @@ import {
   type ProjectFormValues,
   type ProjectRow,
 } from "@/lib/schemas";
-import { DEFAULT_THRESHOLDS } from "@/lib/threshold";
+import { DEFAULT_THRESHOLDS, thresholdsSchema, type Thresholds } from "@/lib/threshold";
 import { cached } from "@/lib/offline/cache";
 import { changed, must, ok, parseAll } from "./util";
 
@@ -24,6 +24,12 @@ export async function listProjects(orgId: string): Promise<ProjectRow[]> {
         .order("created_at", { ascending: false }),
     ),
   );
+}
+
+/** Umbral de comparación del proyecto (dentro si cumple pct O abs_m). Validado antes de guardar. */
+export async function setThresholds(projectId: string, t: Thresholds): Promise<void> {
+  const v = thresholdsSchema.parse(t);
+  changed(await createClient().from("projects").update({ thresholds: v }).eq("id", projectId).select("id"));
 }
 
 export async function resetThresholds(projectId: string): Promise<void> {

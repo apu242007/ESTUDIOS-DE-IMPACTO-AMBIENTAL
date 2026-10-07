@@ -34,6 +34,8 @@ export interface ParsedWork {
   declared_length_m: number | null;
   declared_area_m2: number | null;
   diameter_in: number | null;
+  /** Obras iguales declaradas juntas ("2 líneas de control", "(2)"): lo declarado es por unidad. */
+  quantity: number;
 }
 
 /** "34.400" -> 34400 ; "2,5" -> 2.5 ; "1.850,5" -> 1850.5 */
@@ -66,7 +68,8 @@ const DIAM = /(\d+(?:[.,]\d+)?)\s*(?:"|”|″|''|pulg(?:adas)?\b)/i;
 export function parseAlcance(text: string): ParsedWork[] {
   const items = text
     .split(/[;\n]+/)
-    .map((s) => s.trim().replace(/^[-•*\d.)\s]+(?=[A-Za-zÁÉÍÓÚáéíóú])/, ""))
+    // quita viñetas y numeración de lista ("-", "•", "3.", "2)") pero no una cantidad ("2 líneas de control")
+    .map((s) => s.trim().replace(/^(?:[-•*]+|\d+[.)])\s*/, ""))
     .filter(Boolean);
 
   const out: ParsedWork[] = [];
@@ -84,6 +87,7 @@ export function parseAlcance(text: string): ParsedWork[] {
       else area = n;
     }
     const d = item.match(DIAM);
+    const cant = item.match(/^(\d+)\s+\p{L}+s(?![\p{L}\d])/u) ?? item.match(/\((\d+)\)/);
     const name = last ? item.slice(0, last.index).replace(/[,:\s]+$/, "") : item;
     out.push({
       kind: inferKind(name || item),
@@ -91,6 +95,7 @@ export function parseAlcance(text: string): ParsedWork[] {
       declared_length_m: length,
       declared_area_m2: area,
       diameter_in: d ? parseArNumber(d[1]) : null,
+      quantity: cant ? Math.max(1, Number(cant[1])) : 1,
     });
   }
   return out;

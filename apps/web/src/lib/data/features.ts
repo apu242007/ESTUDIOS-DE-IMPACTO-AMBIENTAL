@@ -47,6 +47,10 @@ const compareSchema = z.object({
   diff_length_pct: num,
   diff_area_m2: num,
   diff_area_pct: num,
+  // obras iguales declaradas juntas (0026): lo declarado de arriba ya es cantidad × unidad
+  quantity: z.number().default(1),
+  declared_unit_length_m: num.optional(),
+  declared_unit_area_m2: num.optional(),
 });
 export type CompareRow = z.infer<typeof compareSchema>;
 
@@ -54,7 +58,7 @@ export async function listCompare(projectId: string): Promise<CompareRow[]> {
   const res = await createClient()
     .from("works_compare")
     .select(
-      "id, name, kind, declared_length_m, declared_area_m2, geom_length_m, geom_area_m2, diff_length_m, diff_length_pct, diff_area_m2, diff_area_pct",
+      "id, name, kind, declared_length_m, declared_area_m2, geom_length_m, geom_area_m2, diff_length_m, diff_length_pct, diff_area_m2, diff_area_pct, quantity, declared_unit_length_m, declared_unit_area_m2",
     )
     .eq("project_id", projectId)
     .order("sort_order");

@@ -55,3 +55,12 @@ describe("parseAlcance", () => {
     expect(r[0]).toMatchObject({ declared_length_m: null, declared_area_m2: null });
   });
 });
+
+describe("cantidad de obras iguales", () => {
+  it('lee "2 líneas ..." y "(2)" como cantidad; sin indicación es 1', () => {
+    const [a, b, c, d] = parseAlcance('2 líneas de control 3" 2.300 m; Líneas de control 3" (2), 2.300 m; Camino troncal 2.270 m; 3. Ingreso fractura 85 m');
+    expect([a.quantity, b.quantity, c.quantity, d.quantity]).toEqual([2, 2, 1, 1]);
+    expect(a.declared_length_m).toBe(2300); // lo declarado es por unidad
+    expect(d.name).toBe("Ingreso fractura"); // la numeración de la lista se sigue quitando
+  });
+});

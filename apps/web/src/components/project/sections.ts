@@ -50,13 +50,13 @@ export const isSection = (v: string | null): v is SectionId =>
 
 /** Una línea por pantalla: para qué sirve. El Resumen no la necesita (ya dice qué falta). */
 export const SECTION_HELP: Partial<Record<SectionId, string>> = {
-  datos: "Solicitante, consultora, yacimiento y umbral de comparación del proyecto.",
-  alcance: "Las obras declaradas por el cliente, con su longitud o superficie.",
+  datos: "Solicitante, consultora y yacimiento del proyecto.",
+  alcance: "Las obras declaradas por el cliente, con su cantidad y su longitud o superficie por unidad.",
   capas: "Subí los archivos SHP o KMZ del cliente; el sistema calcula las medidas reales.",
   catastro: "Nomenclatura y titulares. Solo lo ven los administradores.",
   relevamiento: "Fichas de campo con waypoints y fotos. Funciona sin conexión.",
   gps: "Subí el .gdb del GPS de mano para cruzar los waypoints.",
-  comparacion: "Lo declarado contra lo calculado, con el umbral del proyecto.",
+  comparacion: "Lo declarado contra lo calculado. El umbral del proyecto se ajusta acá.",
   mapa: "Obras y capas sobre el mapa.",
   figuras: "Mapas que se incrustan en el informe.",
   interferencias: "Tabla de puntos de interés y cruces para el informe.",
