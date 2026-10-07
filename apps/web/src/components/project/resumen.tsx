@@ -33,15 +33,13 @@ export function Resumen({
       {/* Siguiente paso: la única franja amarilla de la pantalla (el amarillo se reserva para lo activo) */}
       <section aria-labelledby="sig" className={cn("grid gap-4 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center", next ? "bg-senal text-foreground" : "border-[1.5px] border-ok bg-card")}>
         <div className="min-w-0">
-          <h2 id="sig" className="text-sm font-bold [font-stretch:100%]">{next ? "Siguiente paso" : "Todo listo"}</h2>
-          {next ? (
-            <>
-              <p className="mt-1 font-heading text-3xl font-extrabold leading-tight [font-stretch:112%] sm:text-4xl">{next.label}</p>
-              <p className="mt-1 max-w-prose text-base">{next.detail}</p>
-            </>
-          ) : (
-            <p className="mt-1 max-w-prose text-lg">Los datos, capas, relevamiento y GPS están completos. Ya podés revisar los resultados.</p>
-          )}
+          {/* el nombre del paso es el encabezado; la franja amarilla ya dice que es lo que sigue */}
+          <h2 id="sig" className="text-3xl font-extrabold leading-tight sm:text-4xl">
+            {next ? <><span className="sr-only">Siguiente paso: </span>{next.label}</> : "Todo listo"}
+          </h2>
+          <p className="mt-1 max-w-prose text-base">
+            {next ? next.detail : "Los datos, capas, relevamiento y GPS están completos. Ya podés revisar los resultados."}
+          </p>
         </div>
         {next && (
           <div className="flex flex-wrap gap-2">

@@ -174,7 +174,7 @@
   .fill-x { transform-origin: left; animation: eia-fill-x .7s cubic-bezier(.3,.7,.2,1) both; }
   /* transecta del resumen: el tramo listo se dibuja y el tilde salta */
   .line-y { transform-origin: top; animation: eia-line-y .4s ease-out both; animation-delay: calc(var(--i, 0) * 40ms + .2s); }
-  .pop { animation: eia-pop .35s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--i, 0) * 40ms + .25s); }
+  .pop { animation: eia-pop .35s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 40ms + .25s); }
   .pulse-ring { animation: eia-pulse 2s ease-out infinite; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

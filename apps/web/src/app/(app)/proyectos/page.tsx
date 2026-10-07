@@ -64,10 +64,6 @@ function Hoja({ p, items, i, onDuplicate, canDuplicate }: {
   const total = fases.reduce((a, f) => a + f.total, 0);
   return (
     <li className="enter relative grid content-start gap-3 bg-card p-4 shadow-[0_0_0_1px_var(--border)] transition-colors hover:bg-[#fbfaf7] sm:p-5" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
-      <span className="flex items-baseline justify-between gap-3 font-heading text-sm text-curva">
-        <span className="tnum">{p.code ? `Expte. ${p.code}` : "Sin expediente"}</span>
-        <span>{p.doc_type}</span>
-      </span>
       <h2 className="text-xl font-bold leading-snug [font-stretch:100%]">
         {/* el enlace cubre toda la hoja; "Duplicar" queda encima */}
         <Link href={`/proyecto?id=${p.id}`} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline focus-visible:after:outline-3 focus-visible:after:outline-ring">
@@ -76,6 +72,10 @@ function Hoja({ p, items, i, onDuplicate, canDuplicate }: {
       </h2>
       <p className="text-base text-muted-foreground">
         {[p.clients?.name, p.field_area].filter(Boolean).join(", ")}
+        <span className="mt-1 flex flex-wrap gap-x-3 font-heading text-sm text-curva">
+          <span className="tnum">{p.code ? `Expte. ${p.code}` : "Sin expediente"}</span>
+          <span>{p.doc_type}</span>
+        </span>
       </p>
       <Traza items={items} status={p.status} />
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
