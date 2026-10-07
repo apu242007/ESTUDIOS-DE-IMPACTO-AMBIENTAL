@@ -75,3 +75,12 @@ export function previewFigureUrl(path: string): Promise<string> {
 export function downloadFigureUrl(path: string, filename: string): Promise<string> {
   return signedUrl(path, filename);
 }
+
+/** Borra una figura generada: la fila y su PNG (si el archivo ya no está, igual se borra la fila). */
+export async function deleteFigure(id: string, filePath: string | null): Promise<void> {
+  const sb = createClient();
+  const r = await sb.from("figure_builds").delete().eq("id", id).select("id");
+  if (r.error) throw new Error(r.error.message);
+  if (!r.data?.length) throw new Error("No se pudo borrar la figura (sin permiso o ya no existe).");
+  if (filePath) await sb.storage.from(BUCKET).remove([filePath]); // best-effort: la fila ya no existe
+}

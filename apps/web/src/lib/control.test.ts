@@ -94,7 +94,7 @@ describe("control de calidad", () => {
     const r = runControl(con({ impacts: 0, measuresSelected: 0, zoneKey: null, figureKinds: ["ubicacion"], hasFinalBuild: false }));
     expect(r.filter((f) => f.severity === "critico").map((f) => f.id).sort()).toEqual(["matriz", "pga"]);
     expect(r.filter((f) => f.severity === "advertencia").map((f) => f.id).sort()).toEqual(["ambiente", "figuras", "version"]);
-    expect(r.find((f) => f.id === "figuras")?.detail).toContain("implantacion");
+    expect(r.find((f) => f.id === "figuras")?.detail).toContain("Implantación");
   });
 
   it("los críticos van primero", () => {
@@ -113,5 +113,12 @@ describe("control de calidad", () => {
       id: "omitido:gps", severity: "advertencia", title: "Paso omitido: Cruce con el GPS", section: "gps",
     })]);
     expect(f[0].detail).toContain("8 waypoints sin posición GPS");
+  });
+});
+
+describe("figuras del informe", () => {
+  it("nombra las figuras que faltan por su nombre, no por la clave interna", () => {
+    const f = runControl({ ...ok, figureKinds: ["ubicacion", "interferencias"] }).find((x) => x.id === "figuras");
+    expect(f?.detail).toBe("Falta: Implantación. Generala en Figuras con el botón de esa figura.");
   });
 });

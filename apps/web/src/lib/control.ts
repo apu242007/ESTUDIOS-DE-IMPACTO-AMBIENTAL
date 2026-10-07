@@ -1,4 +1,5 @@
 import type { SectionId } from "@/lib/checklist";
+import { figureKindLabel } from "@/lib/data/figures";
 import { verdict, type Thresholds } from "@/lib/threshold";
 
 /** Control de calidad antes de entregar (Sprint 6 + reglas de contenido del Sprint 10). Función pura. */
@@ -106,7 +107,11 @@ export function runControl(d: ControlData): Finding[] {
   if (d.measuresSelected === 0) add({ id: "pga", severity: "critico", title: "PGA sin medidas particulares", detail: "Elegí las medidas (podés sugerirlas desde la matriz).", section: "pga" });
   if (!d.zoneKey) add({ id: "ambiente", severity: "advertencia", title: "Ambiente sin zona", detail: "Elegí la zona para cargar la descripción del ambiente.", section: "ambiente" });
   const sinFig = REQUIRED_FIGURES.filter((k) => !d.figureKinds.includes(k));
-  if (sinFig.length) add({ id: "figuras", severity: "advertencia", title: plural(sinFig.length, "figura sin generar", "figuras sin generar"), detail: `Faltan: ${sinFig.join(", ")}.`, section: "figuras" });
+  if (sinFig.length) {
+    const nombres = sinFig.map((k) => figureKindLabel[k]).join(", ");
+    add({ id: "figuras", severity: "advertencia", title: plural(sinFig.length, "figura sin generar", "figuras sin generar"),
+          detail: `${sinFig.length === 1 ? "Falta" : "Faltan"}: ${nombres}. Generala${sinFig.length === 1 ? "" : "s"} en Figuras con el botón de esa figura.`, section: "figuras" });
+  }
   if (!d.hasFinalBuild) add({ id: "version", severity: "advertencia", title: "Todavía no hay versión final aprobada", detail: "Las versiones salen con el encabezado BORRADOR hasta que un administrador apruebe.", section: "informe" });
 
   for (const s of d.skipped ?? []) {

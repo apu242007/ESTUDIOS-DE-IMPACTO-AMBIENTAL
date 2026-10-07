@@ -4,7 +4,8 @@ import { EnCola } from "@/components/project/en-cola";
 import Image from "next/image";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ImageIcon, RefreshCw } from "lucide-react";
+import { Download, ImageIcon, RefreshCw, Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/confirm";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
   createFigure,
+  deleteFigure,
   downloadFigureUrl,
   figureBaseLabel,
   figureBases,
@@ -26,6 +28,8 @@ import {
   type FigureStatus,
 } from "@/lib/data/figures";
 import { errMsg } from "@/lib/data/util";
+import { REQUIRED_FIGURES } from "@/lib/control";
+import { cn } from "@/lib/utils";
 
 const statusVariant: Record<FigureStatus, "default" | "secondary" | "destructive" | "outline"> = {
   pendiente: "outline",
@@ -46,7 +50,13 @@ function FigureCard({ figure, projectId, queryKey }: {
   queryKey: readonly [string, string];
 }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [downloading, setDownloading] = useState(false);
+  const borrar = useMutation({
+    mutationFn: () => deleteFigure(figure.id, figure.file_path),
+    onSuccess: () => { toast.success("Figura borrada"); void queryClient.invalidateQueries({ queryKey: [...queryKey] }); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
   const { data: previewUrl } = useQuery({
     queryKey: ["figure-preview", figure.file_path],
     queryFn: () => previewFigureUrl(figure.file_path!),
@@ -108,6 +118,11 @@ function FigureCard({ figure, projectId, queryKey }: {
               <RefreshCw aria-hidden="true" />
               {regenerate.isPending ? "Enviando…" : "Regenerar"}
             </Button>
+            <Button variant="outline" disabled={borrar.isPending || figure.status === "procesando"}
+              onClick={() => void confirm({ title: "¿Borrar esta figura?", details: ["Se borra la imagen generada. Si el informe la usaba, en la próxima versión sale sin ella."], confirmLabel: "Borrar", danger: true }).then((ok) => ok && borrar.mutate())}>
+              <Trash2 aria-hidden="true" />
+              Borrar
+            </Button>
           </div>
         </div>
       </CardContent>
@@ -128,16 +143,44 @@ export function Figuras({ projectId }: { projectId: string }) {
       query.state.data?.some((figure) => figure.status === "pendiente" || figure.status === "procesando") ? 4_000 : false,
   });
   const generate = useMutation({
-    mutationFn: () => createFigure(projectId, kind, { base, leyenda: legend }),
+    mutationFn: (k: FigureKind = kind) => createFigure(projectId, k, { base, leyenda: legend }),
     onSuccess: () => {
-      toast.success("Figura en cola. Se genera en la PC de la consultora.");
+      toast.success("Figura en cola: se genera en unos minutos.");
       void queryClient.invalidateQueries({ queryKey });
     },
     onError: (error) => toast.error(errMsg(error)),
   });
 
+  // la figura más reciente de cada tipo (la lista viene de la más nueva a la más vieja)
+  const ultima = (k: FigureKind) => figures.find((f) => f.kind === k);
+
   return (
     <div className="grid gap-6">
+      {/* las que pide el informe, cada una con su estado y su botón: no hace falta buscarla en el desplegable */}
+      <section aria-labelledby="figuras-informe" className="grid gap-3">
+        <h2 id="figuras-informe" className="text-xl font-bold [font-stretch:100%]">Figuras del informe</h2>
+        <ul className="grid gap-px p-px sm:grid-cols-3">
+          {REQUIRED_FIGURES.map((k) => {
+            const f = ultima(k);
+            const estado = !f ? "Falta generarla" : figureStatusLabel[f.status];
+            const lista = f?.status === "listo";
+            return (
+              <li key={k} className="grid content-between gap-3 bg-card p-4 shadow-[0_0_0_1px_var(--border)]">
+                <div>
+                  <p className="font-bold">{figureKindLabel[k]}</p>
+                  <p className={cn("text-sm", lista ? "text-ok" : f ? "text-muted-foreground" : "text-warn")}>{estado}</p>
+                </div>
+                <Button variant={lista ? "outline" : "default"} disabled={generate.isPending || f?.status === "pendiente" || f?.status === "procesando"}
+                  onClick={() => generate.mutate(k)}>
+                  {lista ? "Volver a generar" : "Generar"}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-sm text-muted-foreground">Se generan con el fondo y la leyenda elegidos abajo.</p>
+      </section>
+
       <section className="rounded-xl border bg-card p-5">
         <h2 className="font-heading text-xl font-semibold">Generar figura</h2>
         <p className="mt-1 max-w-prose text-base text-muted-foreground">
@@ -163,7 +206,7 @@ export function Figuras({ projectId }: { projectId: string }) {
               <option value="sin">Sin</option>
             </NativeSelect>
           </label>
-          <Button size="lg" disabled={generate.isPending} onClick={() => generate.mutate()}>
+          <Button size="lg" disabled={generate.isPending} onClick={() => generate.mutate(kind)}>
             {generate.isPending ? "Enviando…" : "Generar"}
           </Button>
         </div>
