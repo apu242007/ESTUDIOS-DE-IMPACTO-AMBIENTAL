@@ -58,3 +58,28 @@ export async function getChecklist(project: ProjectRow): Promise<CheckItem[]> {
   };
   return applySkipped(buildChecklist(counts), project.skipped_steps ?? []);
 }
+
+type ProgressRow = {
+  project_id: string; works: number; works_geom: number; layer_statuses: string[]; lines: number; lines_closed: number;
+  waypoints: number; waypoints_matched: number; gps_statuses: string[]; photos: number; impacts: number; measures: number;
+};
+
+/** Checklist de todos los proyectos de la organización en una consulta (vista project_progress, 0022). */
+export async function listChecklists(orgId: string, projects: ProjectRow[]): Promise<Map<string, CheckItem[]>> {
+  const { data, error } = await createClient().from("project_progress").select("*").eq("org_id", orgId);
+  if (error) throw new Error(error.message);
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  const out = new Map<string, CheckItem[]>();
+  for (const r of (data ?? []) as ProgressRow[]) {
+    const p = byId.get(r.project_id);
+    if (!p) continue;
+    const missing = missingDatos(p);
+    out.set(r.project_id, applySkipped(buildChecklist({
+      applicantOk: missing.length === 0, missingDatos: missing, works: r.works, worksWithGeom: r.works_geom,
+      layerStatuses: r.layer_statuses, lines: r.lines, linesClosed: r.lines_closed, waypoints: r.waypoints,
+      waypointsMatched: r.waypoints_matched, gpsStatuses: r.gps_statuses, photos: r.photos, impacts: r.impacts,
+      zoneKey: p.zone_key ?? null, measuresSelected: r.measures,
+    }), p.skipped_steps ?? []));
+  }
+  return out;
+}
