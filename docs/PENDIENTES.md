@@ -14,9 +14,9 @@ Orden = importancia para el cliente. Tachar o borrar al cerrar cada ítem.
 - [ ] **Revisar las lecturas dudosas** de las fichas transcriptas (033, 043–047, 123–125, 93–94, 136–139, 037): están en "Observaciones" de cada ficha.
 - [ ] **Revisar datos declarados**: el texto del IA dice 33.440 m² y 2.280 m; el alcance cargado dice 34.400 m² y 2.270 m.
 - [ ] **Aprobar la versión final** (Informe → "Aprobar y generar versión final"): lo hace un admin, no se automatiza.
-- [ ] **Arrancar el worker desde tu propia terminal** (`powershell -ExecutionPolicy Bypass -File apps\worker\run_worker.ps1`)
-  y dejarla abierta. Lanzado desde la sesión de Claude Code muere a los minutos sin dejar rastro (lo cierra el entorno de
-  herramientas, no es un bug del worker). Lo definitivo es la tarea programada al iniciar sesión (ver Worker).
+- [ ] **Token para que el worker de la nube arranque al instante** (sin él corre cada 15 min): GitHub → Settings →
+  Developer settings → Fine-grained tokens, solo este repo, permiso "Actions: Read and write". Guardarlo en Supabase
+  (SQL Editor): `select vault.create_secret('<token>', 'github_worker_token');`
 - [ ] **Activar "Leaked password protection"** en Supabase → Authentication → Passwords (aviso de seguridad del linter).
 - [ ] **Usuario demo** `demoinformeamb@exertion.demo` (rol miembro, contraseña débil): cambiarle la contraseña o darlo de baja
   después de la demo.
@@ -74,6 +74,11 @@ Orden = importancia para el cliente. Tachar o borrar al cerrar cada ítem.
 - [ ] **RAM de la PC del worker** (7,8 GB, quedaba 0,2 GB libre): el informe + LibreOffice compiten con el resto.
   Arranque: `powershell -ExecutionPolicy Bypass -File apps\worker\run_worker.ps1` (log en `apps/worker/worker.log`).
   Falta que arranque solo con Windows (tarea programada).
+- [x] **Worker en la nube** (07/10): GitHub Actions (`.github/workflows/worker.yml`, `app/run_once.py`) procesa la
+  cola al entrar un trabajo (migración 0025) y cada 15 min. El worker de la PC sigue sirviendo (los dos conviven).
+- [ ] GitHub **desactiva los workflows programados** tras 60 días sin actividad en el repo: si pasa, reactivarlo en Actions.
+- [ ] La pasada en la nube no reencola trabajos en `procesando`: si una corrida muere a mitad (timeout de 45 min), ese
+  trabajo queda trabado hasta que arranque el worker de la PC o se reencole a mano. Agregar marca de tiempo al reclamo.
 - [ ] `requeue_orphans` supone **un solo worker**; con varios, reclamar con marca de tiempo y vencimiento.
 - [ ] **Escrituras no atómicas** en el worker: delete+insert de `layer_features` y de `gps_points`, y UPDATE de waypoints uno
   por uno (`poller.py`). Una falla a mitad deja estado parcial; pasarlas a una función SQL por trabajo.
