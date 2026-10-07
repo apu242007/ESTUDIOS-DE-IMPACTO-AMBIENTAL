@@ -44,7 +44,7 @@ function NumCell({
 }) {
   return (
     <Input
-      className="h-11 w-28"
+      className="h-11 w-full min-w-0"
       type="number"
       step="any"
       min={0}
@@ -137,12 +137,16 @@ export function Alcance({ projectId }: { projectId: string }) {
       </div>
 
       <Card>
-        <CardContent className="overflow-x-auto p-2">
-          <table className="w-full min-w-[73rem] text-sm">
+        <CardContent className="p-2">
+          {/* columnas proporcionales: la tabla llena el ancho sin barra lateral; en el celular cada obra es una ficha */}
+          <table className="table-cards w-full text-sm md:table-fixed">
+            <colgroup>
+              {[11, 19, 7, 10, 6, 8, 8, 6, 8, 9, 8].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+            </colgroup>
             <thead>
               <tr className="text-left text-muted-foreground">
                 {["Tipo", "Nombre", "Código", "Etapa", "Cant.", "Long. decl. (m)", "Sup. decl. (m²)", "Ø (pulg)", "Material", "Medido", ""].map((h) => (
-                  <th key={h} className="p-2 font-medium">
+                  <th key={h} className="p-1.5 align-bottom font-medium leading-tight">
                     {h}
                   </th>
                 ))}
@@ -165,9 +169,9 @@ export function Alcance({ projectId }: { projectId: string }) {
               )}
               {works.map((w) => (
                 <tr key={w.id} className="border-t align-top">
-                  <td className="p-2">
+                  <td data-label="Tipo" className="p-1.5">
                     <NativeSelect
-                      className="h-11 w-44"
+                      className="h-11 w-full min-w-0"
                       aria-label="Tipo de obra"
                       value={w.kind}
                       onChange={(e) => save(w, { kind: e.target.value as WorkKind })}
@@ -179,15 +183,15 @@ export function Alcance({ projectId }: { projectId: string }) {
                       ))}
                     </NativeSelect>
                   </td>
-                  <td className="p-2">
-                    <TextCell className="h-11 w-64" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
+                  <td data-label="Nombre" data-wide className="p-1.5">
+                    <TextCell className="h-11 w-full min-w-0" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
                   </td>
-                  <td className="p-2">
-                    <TextCell className="h-11 w-24" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
+                  <td data-label="Código" className="p-1.5">
+                    <TextCell className="h-11 w-full min-w-0" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
                   </td>
-                  <td className="p-2">
+                  <td data-label="Etapa" className="p-1.5">
                     <NativeSelect
-                      className="h-11 w-40"
+                      className="h-11 w-full min-w-0"
                       aria-label="Etapa"
                       value={w.stage ?? ""}
                       onChange={(e) => save(w, { stage: (e.target.value || null) as Stage | null })}
@@ -200,10 +204,10 @@ export function Alcance({ projectId }: { projectId: string }) {
                       ))}
                     </NativeSelect>
                   </td>
-                  <td className="p-2">
+                  <td data-label="Cantidad" className="p-1.5">
                     {/* obras iguales declaradas juntas ("2 líneas de control"): lo declarado es por unidad */}
                     <NativeSelect
-                      className="h-11 w-20"
+                      className="h-11 w-full min-w-0"
                       aria-label="Cantidad de obras iguales"
                       value={w.quantity}
                       onChange={(e) => save(w, { quantity: Number(e.target.value) })}
@@ -211,24 +215,24 @@ export function Alcance({ projectId }: { projectId: string }) {
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
                     </NativeSelect>
                   </td>
-                  <td className="p-2">
+                  <td data-label="Longitud declarada (m)" className="p-1.5">
                     <NumCell value={w.declared_length_m} label="Longitud declarada (por unidad)" onSave={(v) => save(w, { declared_length_m: v })} />
                   </td>
-                  <td className="p-2">
+                  <td data-label="Superficie declarada (m²)" className="p-1.5">
                     <NumCell value={w.declared_area_m2} label="Superficie declarada" onSave={(v) => save(w, { declared_area_m2: v })} />
                   </td>
-                  <td className="p-2">
+                  <td data-label="Diámetro (pulg)" className="p-1.5">
                     <NumCell value={w.diameter_in} label="Diámetro" onSave={(v) => save(w, { diameter_in: v })} />
                   </td>
-                  <td className="p-2">
-                    <TextCell className="h-11 w-28" value={w.material} label="Material" onSave={(v) => save(w, { material: v })} />
+                  <td data-label="Material" className="p-1.5">
+                    <TextCell className="h-11 w-full min-w-0" value={w.material} label="Material" onSave={(v) => save(w, { material: v })} />
                   </td>
-                  <td className="p-2 whitespace-nowrap text-muted-foreground">
+                  <td data-label="Medido" className="p-1.5 whitespace-nowrap text-muted-foreground">
                     {w.geom_length_m !== null && `${fmt(w.geom_length_m)} m`}
                     {w.geom_area_m2 !== null && `${fmt(w.geom_area_m2)} m²`}
                     {w.geom_length_m === null && w.geom_area_m2 === null && "sin geometría"}
                   </td>
-                  <td className="p-2">
+                  <td data-wide className="p-1.5">
                     <Button
                       variant="outline"
                       onClick={() => {
