@@ -1,13 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from "next/font/google";
+import { Archivo, Atkinson_Hyperlegible_Next } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/app-providers";
 
-// Cuerpo: Public Sans (legible al sol, sobria). Títulos: Source Serif 4 (el producto entrega un informe).
-// Números y coordenadas: IBM Plex Mono.
-const publicSans = Public_Sans({ variable: "--font-public", subsets: ["latin"], display: "swap" });
-const sourceSerif = Source_Serif_4({ variable: "--font-serif", subsets: ["latin"], display: "swap" });
-const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"], display: "swap" });
+// Interfaz: Atkinson Hyperlegible Next (hecha para legibilidad: sol, apuro, guantes).
+// Títulos y cifras: Archivo con eje de ancho, expandido como el rotulado de un plano o una carta topográfica.
+const atkinson = Atkinson_Hyperlegible_Next({ variable: "--font-ui", subsets: ["latin"], display: "swap" });
+const archivo = Archivo({ variable: "--font-rot", subsets: ["latin"], axes: ["wdth"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "EIA — Informes de impacto ambiental",
@@ -16,7 +15,7 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "EIA" },
 };
 
-export const viewport: Viewport = { themeColor: "#0f4c5c" };
+export const viewport: Viewport = { themeColor: "#1e1a16" };
 
 export default function RootLayout({
   children,
@@ -25,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     // las variables de fuente van en <html>: `html { font-family }` (globals.css) las necesita en su mismo nivel
-    <html lang="es-AR" suppressHydrationWarning className={`${publicSans.variable} ${sourceSerif.variable} ${plexMono.variable}`}>
+    <html lang="es-AR" suppressHydrationWarning className={`${atkinson.variable} ${archivo.variable}`}>
       <body className="antialiased" suppressHydrationWarning>
         <AppProviders>{children}</AppProviders>
       </body>
