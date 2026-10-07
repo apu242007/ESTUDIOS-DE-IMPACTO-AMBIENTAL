@@ -1,5 +1,6 @@
 "use client";
 
+import { EnCola } from "@/components/project/en-cola";
 import Image from "next/image";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,8 +39,6 @@ const formatDate = (iso: string) =>
     day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 
-const workerDormido = (figure: FigureRow) =>
-  figure.status === "pendiente" && Date.now() - new Date(figure.created_at).getTime() > 90_000;
 
 function FigureCard({ figure, projectId, queryKey }: {
   figure: FigureRow;
@@ -83,11 +82,7 @@ function FigureCard({ figure, projectId, queryKey }: {
           <p className="text-sm text-muted-foreground">
             {figureBaseLabel[figure.params.base]} · {figure.params.leyenda ? "Con leyenda" : "Sin leyenda"}
           </p>
-          {workerDormido(figure) && (
-            <p role="alert" className="text-sm text-warn">
-              Lleva más de 90 segundos en cola; revisá que el worker esté corriendo.
-            </p>
-          )}
+          {figure.status === "pendiente" && <EnCola desde={figure.created_at} />}
           {figure.error && <p role="alert" className="text-sm text-destructive">{figure.error}</p>}
           <div className="flex flex-wrap gap-2">
             {figure.status === "listo" && figure.file_path && (

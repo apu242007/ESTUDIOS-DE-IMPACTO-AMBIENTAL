@@ -1,5 +1,6 @@
 "use client";
 
+import { EnCola } from "@/components/project/en-cola";
 import { useConfirm } from "@/components/confirm";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -204,6 +205,7 @@ export function Capas({ orgId, projectId }: { orgId: string; projectId: string }
             {imp.status === "requiere_crs" && (
               <CrsConfirm imp={imp} busy={requeue.isPending} onConfirm={(epsg) => requeue.mutate({ id: imp.id, epsg })} />
             )}
+            {imp.status === "pendiente" && <EnCola desde={imp.created_at} />}
             {imp.status === "error" && imp.error && (
               <p role="alert" className="text-sm text-destructive">
                 {imp.error}

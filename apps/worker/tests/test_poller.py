@@ -125,3 +125,26 @@ def test_cada_trabajo_reclamado_queda_en_el_log(caplog: Any) -> None:
         poller.run_gps_job = orig
     assert vistos == ["g1"]
     assert "gps_imports g1" in caplog.text
+
+
+def test_el_worker_deja_su_latido_y_no_lo_repite_antes_de_tiempo() -> None:
+    from app.jobs import poller
+
+    escrito: list[dict[str, Any]] = []
+
+    class C:
+        def table(self, t: str) -> "C":
+            assert t == "worker_heartbeat"
+            return self
+
+        def upsert(self, row: dict[str, Any]) -> "C":
+            escrito.append(row)
+            return self
+
+        def execute(self) -> None:
+            return None
+
+    ultimo = poller.latido(C(), 0.0, ahora=100.0)
+    assert ultimo == 100.0 and escrito[0]["id"] == "main" and "seen_at" in escrito[0]
+    assert poller.latido(C(), ultimo, ahora=110.0) == 100.0 and len(escrito) == 1   # antes de 30 s no escribe
+    assert poller.latido(C(), ultimo, ahora=131.0) == 131.0 and len(escrito) == 2

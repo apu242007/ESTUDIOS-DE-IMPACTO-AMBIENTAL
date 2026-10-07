@@ -1,5 +1,6 @@
 "use client";
 
+import { EnCola } from "@/components/project/en-cola";
 import { useConfirm } from "@/components/confirm";
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -112,6 +113,7 @@ export function Gps({ orgId, projectId }: { orgId: string; projectId: string }) 
                 </span>
               )}
             </div>
+            {imp.status === "pendiente" && <EnCola desde={imp.created_at} />}
             {imp.status === "error" && imp.error && (
               <p role="alert" className="text-sm text-destructive">
                 {imp.error}

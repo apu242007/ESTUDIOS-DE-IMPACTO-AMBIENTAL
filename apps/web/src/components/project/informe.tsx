@@ -1,5 +1,6 @@
 "use client";
 
+import { EnCola } from "@/components/project/en-cola";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, PackageCheck } from "lucide-react";
@@ -29,7 +30,6 @@ const fecha = (iso: string) =>
   new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** Más de 90 s "En cola" casi siempre significa que el worker de la PC no está corriendo. */
-const workerDormido = (b: BuildRow) => b.status === "pendiente" && Date.now() - new Date(b.created_at).getTime() > 90_000;
 
 function Descarga({ path, filename, label, icon }: { path: string; filename: string; label: string; icon?: "paquete" }) {
   const [busy, setBusy] = useState(false);
@@ -194,11 +194,7 @@ export function Informe({
                     <span className="tnum text-sm text-muted-foreground">{fecha(b.created_at)}</span>
                   </div>
 
-                  {workerDormido(b) && (
-                    <p role="alert" className="text-sm text-warn">
-                      Lleva más de un minuto en cola. Revisá que el worker esté corriendo en la PC de la consultora.
-                    </p>
-                  )}
+                  {b.status === "pendiente" && <EnCola desde={b.created_at} />}
 
                   {b.status === "listo" && (
                     <div className="flex flex-wrap gap-2">

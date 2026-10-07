@@ -1,9 +1,11 @@
 """E/S con Supabase: reclama layer_imports, descarga de Storage, procesa e inserta."""
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import tempfile
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -157,13 +159,32 @@ def requeue_orphans(client: Any) -> None:
         client.table(table).update({"status": "pendiente"}).eq("status", "procesando").execute()
 
 
+LATIDO_CADA = 30.0  # segundos; la web considera apagado al worker si no hay latido en ~90 s
+
+
+def latido(client: Any, ultimo: float, ahora: float | None = None) -> float:
+    """Marca en la base que el worker está vivo (la web lo muestra junto a lo que está en cola). Devuelve el
+    instante del último latido escrito; no escribe más de una vez cada LATIDO_CADA segundos."""
+    ahora = time.monotonic() if ahora is None else ahora
+    if ahora - ultimo < LATIDO_CADA and ultimo:
+        return ultimo
+    seen = dt.datetime.now(dt.timezone.utc).isoformat()
+    client.table("worker_heartbeat").upsert({"id": "main", "seen_at": seen}).execute()
+    return ahora
+
+
 def poll_forever(client: Any, poll_seconds: float, stop: threading.Event) -> None:
     log.info("sondeo de trabajos activo cada %.0f s", poll_seconds)
+    ultimo_latido = 0.0
     try:
         requeue_orphans(client)
     except Exception:
         log.exception("no se pudieron reencolar trabajos huérfanos")
     while not stop.is_set():
+        try:
+            ultimo_latido = latido(client, ultimo_latido)
+        except Exception:
+            log.exception("no se pudo escribir el latido del worker")
         try:
             if poll_once(client):
                 continue  # hay mas trabajos: no esperar
