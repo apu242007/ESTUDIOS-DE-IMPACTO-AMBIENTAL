@@ -14,9 +14,9 @@ Orden = importancia para el cliente. Tachar o borrar al cerrar cada ítem.
 - [ ] **Revisar las lecturas dudosas** de las fichas transcriptas (033, 043–047, 123–125, 93–94, 136–139, 037): están en "Observaciones" de cada ficha.
 - [ ] **Revisar datos declarados**: el texto del IA dice 33.440 m² y 2.280 m; el alcance cargado dice 34.400 m² y 2.270 m.
 - [ ] **Aprobar la versión final** (Informe → "Aprobar y generar versión final"): lo hace un admin, no se automatiza.
-- [ ] **Token para que el worker de la nube arranque al instante** (sin él corre cada 15 min): GitHub → Settings →
-  Developer settings → Fine-grained tokens, solo este repo, permiso "Actions: Read and write". Guardarlo en Supabase
-  (SQL Editor): `select vault.create_secret('<token>', 'github_worker_token');`
+- [x] **Token del worker de la nube** guardado en Vault (`github_worker_token`, 07/10): la cola dispara el worker al
+  instante (probado: en cola → procesado en menos de 1 min). Cuando venza, generar otro y actualizarlo con
+  `vault.update_secret`.
 - [ ] **Activar "Leaked password protection"** en Supabase → Authentication → Passwords (aviso de seguridad del linter).
 - [ ] **Usuario demo** `demoinformeamb@exertion.demo` (rol miembro, contraseña débil): cambiarle la contraseña o darlo de baja
   después de la demo.
