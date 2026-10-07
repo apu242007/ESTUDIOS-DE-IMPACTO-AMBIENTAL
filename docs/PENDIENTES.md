@@ -14,8 +14,9 @@ Orden = importancia para el cliente. Tachar o borrar al cerrar cada ítem.
 - [ ] **Revisar las lecturas dudosas** de las fichas transcriptas (033, 043–047, 123–125, 93–94, 136–139, 037): están en "Observaciones" de cada ficha.
 - [ ] **Revisar datos declarados**: el texto del IA dice 33.440 m² y 2.280 m; el alcance cargado dice 34.400 m² y 2.270 m.
 - [ ] **Aprobar la versión final** (Informe → "Aprobar y generar versión final"): lo hace un admin, no se automatiza.
-- [ ] **Reiniciar el worker** en la PC (`run_worker.ps1`) para que tome los arreglos del 06/10 (rutas propias en capas y GPS,
-  regla única de interferencias, control de tamaño del paquete final).
+- [ ] **Arrancar el worker desde tu propia terminal** (`powershell -ExecutionPolicy Bypass -File apps\worker\run_worker.ps1`)
+  y dejarla abierta. Lanzado desde la sesión de Claude Code muere a los minutos sin dejar rastro (lo cierra el entorno de
+  herramientas, no es un bug del worker). Lo definitivo es la tarea programada al iniciar sesión (ver Worker).
 - [ ] **Activar "Leaked password protection"** en Supabase → Authentication → Passwords (aviso de seguridad del linter).
 - [ ] **Usuario demo** `demoinformeamb@exertion.demo` (rol miembro, contraseña débil): cambiarle la contraseña o darlo de baja
   después de la demo.
