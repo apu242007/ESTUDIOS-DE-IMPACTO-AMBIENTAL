@@ -34,7 +34,7 @@ import {
 const fmt = (n: number | null) => (n === null ? "—" : n.toLocaleString("es-AR", { maximumFractionDigits: 1 }));
 const toNum = (v: string): number | null => (v.trim() === "" ? null : Number(v.replace(",", ".")));
 
-function NumCell({
+export function NumCell({
   value,
   label,
   onSave,

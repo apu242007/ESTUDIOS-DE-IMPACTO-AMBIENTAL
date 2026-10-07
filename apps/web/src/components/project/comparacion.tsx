@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/confirm";
+import { NumCell } from "@/components/project/alcance";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import type { SectionId } from "@/lib/checklist";
 import { setThresholds } from "@/lib/data/projects";
@@ -12,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { workKindLabel, type WorkKind } from "@/lib/alcance-parser";
 import { listCompare } from "@/lib/data/features";
+import { deleteWork, updateWork, type WorkPatch } from "@/lib/data/works";
 import { thresholdsSchema, verdict, type Thresholds, type Verdict } from "@/lib/threshold";
 
 const fmt = (n: number | null, d = 1) => (n === null ? "—" : n.toLocaleString("es-AR", { maximumFractionDigits: d }));
@@ -65,27 +70,47 @@ function Umbral({ projectId, thresholds }: { projectId: string; thresholds: Thre
 }
 
 export function Comparacion({ projectId, thresholds, onGo }: { projectId: string; thresholds: Thresholds; onGo: (s: SectionId) => void }) {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
   const { data: rows = [], isLoading } = useQuery({ queryKey: ["works-compare", projectId], queryFn: () => listCompare(projectId) });
+  // editar o quitar una obra desde acá mismo (mismos datos que Alcance)
+  const refrescar = () => {
+    for (const k of [["works-compare", projectId], ["works", projectId], ["checklist", projectId], ["control", projectId], ["projects"]]) {
+      void qc.invalidateQueries({ queryKey: k });
+    }
+  };
+  const save = useMutation({
+    mutationFn: (a: { id: string; patch: WorkPatch }) => updateWork(a.id, a.patch),
+    onSuccess: refrescar,
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const del = useMutation({ mutationFn: deleteWork, onSuccess: () => { toast.success("Obra quitada"); refrescar(); }, onError: (e) => toast.error(errMsg(e)) });
 
   return (
     <div className="grid gap-3">
       <Umbral key={`${thresholds.pct}-${thresholds.abs_m}`} projectId={projectId} thresholds={thresholds} />
+      <p className="text-sm text-muted-foreground">
+        Lo declarado y la cantidad se corrigen acá o en Alcance; el calculado sale de la capa vinculada a la obra.
+      </p>
       <Card>
-        <CardContent className="overflow-x-auto p-2">
-          <table className="table-cards w-full text-base md:min-w-[48rem]">
+        <CardContent className="p-2">
+          <table className="table-cards w-full text-sm md:table-fixed">
+            <colgroup>
+              {[21, 9, 7, 12, 11, 10, 8, 16, 6].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+            </colgroup>
             <thead>
               <tr className="text-left text-muted-foreground">
-                {["Obra", "Tipo", "Declarado", "Calculado", "Diferencia", "%", "Estado"].map((h) => (
-                  <th key={h} className="p-2 font-medium">{h}</th>
+                {["Obra", "Tipo", "Cant.", "Declarado por unidad", "Calculado", "Diferencia", "%", "Estado", ""].map((h, i) => (
+                  <th key={i} className="p-1.5 align-bottom font-medium leading-tight">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={7} className="p-4">Cargando…</td></tr>
+                <tr><td colSpan={9} className="p-4">Cargando…</td></tr>
               )}
               {!isLoading && rows.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Sin obras en el alcance.</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Sin obras en el alcance.</td></tr>
               )}
               {rows.map((r, idx) => {
                 const isArea = r.declared_length_m === null && r.declared_area_m2 !== null;
@@ -94,29 +119,44 @@ export function Comparacion({ projectId, thresholds, onGo }: { projectId: string
                 const diff = isArea ? r.diff_area_m2 : r.diff_length_m;
                 const pct = isArea ? r.diff_area_pct : r.diff_length_pct;
                 const unit = isArea ? "m²" : "m";
-                const unidad = isArea ? r.declared_unit_area_m2 : r.declared_unit_length_m;
+                const unidad = (isArea ? r.declared_unit_area_m2 : r.declared_unit_length_m) ?? null;
                 // el umbral absoluto está en metros: para superficies solo aplica el porcentaje
                 const v = verdict(declared, measured, isArea ? { pct: thresholds.pct, abs_m: 0 } : thresholds);
                 return (
-                  <tr key={r.id} className="enter border-t" style={{ "--i": Math.min(idx, 12) } as React.CSSProperties}>
-                    <td data-label="Obra" data-wide className="p-2 font-medium">{r.name}</td>
-                    <td data-label="Tipo" className="p-2">{workKindLabel[r.kind as WorkKind] ?? r.kind}</td>
-                    <td data-label="Declarado" className="p-2 tnum font-mono">
-                      {declared === null ? "—" : r.quantity > 1 && unidad != null ? `${r.quantity} × ${fmt(unidad)} = ${fmt(declared)} ${unit}` : `${fmt(declared)} ${unit}`}
+                  <tr key={r.id} className="enter border-t align-middle" style={{ "--i": Math.min(idx, 12) } as React.CSSProperties}>
+                    <td data-label="Obra" data-wide className="p-1.5 font-medium">{r.name}</td>
+                    <td data-label="Tipo" className="p-1.5">{workKindLabel[r.kind as WorkKind] ?? r.kind}</td>
+                    <td data-label="Cantidad" className="p-1.5">
+                      <NativeSelect className="h-11 w-full min-w-0 px-1.5 text-sm" aria-label={`Cantidad de ${r.name}`} value={r.quantity}
+                        onChange={(e) => save.mutate({ id: r.id, patch: { quantity: Number(e.target.value) } })}>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                      </NativeSelect>
                     </td>
-                    <td data-label="Calculado" className="p-2 tnum font-mono">{measured === null ? "sin geometría" : `${fmt(measured)} ${unit}`}</td>
-                    <td data-label="Diferencia" className="p-2 tnum font-mono">{diff === null ? "—" : `${sign(diff)} ${unit}`}</td>
-                    <td data-label="%" className="p-2 tnum font-mono">{pct === null ? "—" : `${sign(pct, 2)} %`}</td>
-                    <td data-label="Estado" className="p-2">
-                      <span className="flex flex-wrap items-center gap-2">
+                    <td data-label={`Declarado por unidad (${unit})`} className="p-1.5">
+                      <NumCell key={`${r.id}-${unidad}`} value={unidad} label={`Declarado de ${r.name} (${unit})`}
+                        onSave={(n) => save.mutate({ id: r.id, patch: isArea ? { declared_area_m2: n } : { declared_length_m: n } })} />
+                    </td>
+                    <td data-label="Calculado" className="p-1.5 tnum font-mono">
+                      {measured === null ? <span className="font-sans text-muted-foreground">sin geometría</span> : `${fmt(measured)} ${unit}`}
+                      {r.quantity > 1 && declared !== null && <span className="block font-sans text-xs text-muted-foreground">vs {fmt(declared)} {unit} ({r.quantity} ×)</span>}
+                    </td>
+                    <td data-label="Diferencia" className="p-1.5 tnum font-mono">{diff === null ? "—" : `${sign(diff)} ${unit}`}</td>
+                    <td data-label="%" className="p-1.5 tnum font-mono">{pct === null ? "—" : `${sign(pct, 2)} %`}</td>
+                    <td data-label="Estado" className="p-1.5">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <Badge variant={badge[v].variant}>{badge[v].label}</Badge>
-                        {/* fuera del umbral: se corrige el declarado (o la cantidad) en Alcance, o la capa en Capas */}
-                        {v === "fuera" && (
-                          <button type="button" onClick={() => onGo("alcance")} className="text-sm font-bold text-primary underline-offset-4 hover:underline">
-                            Revisar en Alcance
+                        {measured === null && (
+                          <button type="button" onClick={() => onGo("capas")} className="text-sm font-bold text-primary underline-offset-4 hover:underline">
+                            Vincular capa
                           </button>
                         )}
                       </span>
+                    </td>
+                    <td data-wide className="p-1.5 text-right">
+                      <Button variant="outline" size="icon" aria-label={`Quitar ${r.name}`} title="Quitar obra"
+                        onClick={() => void confirm({ title: `¿Quitar “${r.name}” del alcance?`, confirmLabel: "Quitar", danger: true }).then((ok) => ok && del.mutate(r.id))}>
+                        <Trash2 aria-hidden="true" />
+                      </Button>
                     </td>
                   </tr>
                 );
