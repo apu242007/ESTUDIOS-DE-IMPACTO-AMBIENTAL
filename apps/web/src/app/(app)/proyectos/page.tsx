@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { ProjectForm } from "@/components/project-form";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { nextStep, type CheckItem } from "@/lib/checklist";
 import { listClients } from "@/lib/data/clients";
-import { duplicateProject, listProjects } from "@/lib/data/projects";
+import { deleteProject, duplicateProject, listProjects, setArchived } from "@/lib/data/projects";
 import { listChecklists } from "@/lib/data/summary";
 import { errMsg } from "@/lib/data/util";
 import { faseActiva, porFase } from "@/lib/fases";
@@ -55,8 +55,9 @@ function Traza({ items, status }: { items: CheckItem[] | undefined; status: Proj
   );
 }
 
-function Hoja({ p, items, i, onDuplicate, canDuplicate }: {
+function Hoja({ p, items, i, onDuplicate, canDuplicate, isAdmin, onArchive, onDelete }: {
   p: ProjectRow; items: CheckItem[] | undefined; i: number; onDuplicate: () => void; canDuplicate: boolean;
+  isAdmin: boolean; onArchive: () => void; onDelete: () => void;
 }) {
   const sigue = items ? nextStep(items) : null;
   const fases = items ? porFase(items, p.status) : [];
@@ -91,31 +92,48 @@ function Hoja({ p, items, i, onDuplicate, canDuplicate }: {
           <span className="font-bold">{sigue.label}</span>
         </p>
       )}
-      <div className="relative z-10 flex justify-end border-t pt-3">
-        <Button variant="ghost" size="sm" className="h-10" disabled={!canDuplicate} onClick={onDuplicate}>
-          <Copy aria-hidden="true" />
-          Duplicar
-        </Button>
+      <div className="relative z-10 flex flex-wrap justify-end gap-1 border-t pt-3">
+        {!p.archived_at && (
+          <Button variant="ghost" size="sm" className="h-10" disabled={!canDuplicate} onClick={onDuplicate}>
+            <Copy aria-hidden="true" />
+            Duplicar
+          </Button>
+        )}
+        {/* archivar lo hace cualquiera; devolverlo a la lista, solo un admin */}
+        {(!p.archived_at || isAdmin) && (
+          <Button variant="ghost" size="sm" className="h-10" disabled={!canDuplicate} onClick={onArchive}>
+            {p.archived_at ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
+            {p.archived_at ? "Desarchivar" : "Archivar"}
+          </Button>
+        )}
+        {isAdmin && (
+          <Button variant="ghost" size="sm" className="h-10 text-destructive hover:text-destructive" disabled={!canDuplicate} onClick={onDelete}>
+            <Trash2 aria-hidden="true" />
+            Eliminar
+          </Button>
+        )}
       </div>
     </li>
   );
 }
 
 export default function ProyectosPage() {
-  const { orgId } = useAuth();
+  const { orgId, isAdmin } = useAuth();
   const online = useOnline();
   const router = useRouter();
   const qc = useQueryClient();
   const confirm = useConfirm();
   const [q, setQ] = useState("");
-  const [estado, setEstado] = useState<ProjectRow["status"] | "todos">("todos");
+  const [estado, setEstado] = useState<ProjectRow["status"] | "todos" | "archivados">("todos");
   const [creating, setCreating] = useState(false);
 
-  const { data: projects = [], isLoading, error: listError } = useQuery({
+  const { data: all = [], isLoading, error: listError } = useQuery({
     queryKey: ["projects", orgId],
     queryFn: () => listProjects(orgId as string),
     enabled: !!orgId,
   });
+  const projects = all.filter((p) => !p.archived_at);
+  const archivados = all.filter((p) => p.archived_at);
   const { data: checklists } = useQuery({
     queryKey: ["checklists", orgId, projects.map((p) => p.id).join(",")],
     queryFn: () => listChecklists(orgId as string, projects),
@@ -143,9 +161,46 @@ export default function ProyectosPage() {
       confirmLabel: "Duplicar",
     }).then((ok) => ok && dup.mutate(p.id));
 
+  const refresh = () => void qc.invalidateQueries({ queryKey: ["projects"] });
+  const arch = useMutation({
+    mutationFn: (a: { p: ProjectRow; archived: boolean }) => setArchived(a.p.id, a.archived),
+    onSuccess: (_, a) => {
+      toast.success(a.archived ? "Proyecto archivado" : "Proyecto devuelto a la lista");
+      refresh();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const archivar = (p: ProjectRow) =>
+    p.archived_at
+      ? arch.mutate({ p, archived: false })
+      : void confirm({
+          title: `¿Archivar “${p.name}”?`,
+          details: ["Sale de la lista sin borrar nada.", "Lo ves en “Archivados”; solo un administrador lo devuelve a la lista."],
+          confirmLabel: "Archivar",
+        }).then((ok) => ok && arch.mutate({ p, archived: true }));
+  const del = useMutation({
+    mutationFn: (p: ProjectRow) => deleteProject(p.id),
+    onSuccess: ({ leftover }) => {
+      if (leftover) toast.warning(`Proyecto eliminado, pero ${leftover} archivos no se pudieron borrar del almacenamiento.`);
+      else toast.success("Proyecto eliminado");
+      refresh();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const eliminar = (p: ProjectRow) =>
+    void confirm({
+      title: `¿Eliminar “${p.name}” para siempre?`,
+      details: [
+        "Se borran de la base y del almacenamiento el alcance, las capas, el relevamiento, el GPS, las fotos, las figuras y las versiones del informe.",
+        "No se puede deshacer. Si solo querés sacarlo de la lista, usá “Archivar”.",
+      ],
+      confirmLabel: "Eliminar para siempre",
+      danger: true,
+    }).then((ok) => ok && del.mutate(p));
+
   const needle = q.trim().toLowerCase();
-  const rows = projects.filter((p) =>
-    (estado === "todos" || p.status === estado) &&
+  const rows = (estado === "archivados" ? archivados : projects).filter((p) =>
+    (estado === "todos" || estado === "archivados" || p.status === estado) &&
     [p.name, p.code, p.clients?.name, p.field_area]
       .filter(Boolean)
       .some((t) => (t as string).toLowerCase().includes(needle)),
@@ -224,6 +279,21 @@ export default function ProyectosPage() {
               </button>
             );
           })}
+          {archivados.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={estado === "archivados"}
+              onClick={() => setEstado("archivados")}
+              className={cn(
+                "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-dashed px-4 text-base font-bold transition-colors",
+                estado === "archivados" ? "border-foreground bg-foreground text-white" : "bg-card hover:border-input",
+              )}
+            >
+              <Archive aria-hidden="true" className="size-4" />
+              Archivados
+              <span className="tnum font-heading text-sm font-medium opacity-75">{archivados.length}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -232,11 +302,15 @@ export default function ProyectosPage() {
         {isLoading && [0, 1, 2].map((i) => <li key={i} className="bg-card p-5 shadow-[0_0_0_1px_var(--border)]"><Skeleton className="h-36" /></li>)}
         {!isLoading && rows.length === 0 && (
           <li className="col-span-full bg-card px-5 py-10 shadow-[0_0_0_1px_var(--border)] text-center text-base text-muted-foreground">
-            {projects.length === 0 ? "Todavía no hay proyectos. Creá el primero con “Nuevo proyecto”." : "Ningún proyecto coincide con la búsqueda o el filtro."}
+            {estado === "archivados" ? "No hay proyectos archivados." : projects.length === 0 ? "Todavía no hay proyectos. Creá el primero con “Nuevo proyecto”." : "Ningún proyecto coincide con la búsqueda o el filtro."}
           </li>
         )}
         {rows.map((p, i) => (
-          <Hoja key={p.id} p={p} i={i} items={checklists?.get(p.id)} canDuplicate={online && !dup.isPending} onDuplicate={() => duplicar(p)} />
+          <Hoja
+            key={p.id} p={p} i={i} items={checklists?.get(p.id)} isAdmin={isAdmin}
+            canDuplicate={online && !dup.isPending && !arch.isPending && !del.isPending}
+            onDuplicate={() => duplicar(p)} onArchive={() => archivar(p)} onDelete={() => eliminar(p)}
+          />
         ))}
       </ul>
 

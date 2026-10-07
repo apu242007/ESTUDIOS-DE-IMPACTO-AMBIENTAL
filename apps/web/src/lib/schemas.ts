@@ -62,6 +62,7 @@ export const projectRowSchema = z.object({
   // tolerante: un umbral con formato inválido no debe ocultar el proyecto; la pantalla avisa y permite restablecerlo
   thresholds: z.unknown(),
   skipped_steps: z.array(z.string()).optional(), // pasos del recorrido omitidos por un admin (0021)
+  archived_at: z.string().nullable().optional(), // archivado (0028): sale de la lista; solo un admin lo devuelve
   created_at: z.string(),
   clients: z.object({ name: z.string() }).nullable().optional(),
 });

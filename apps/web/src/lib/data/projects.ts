@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import {
   cadastreRowSchema,
@@ -24,6 +25,31 @@ export async function listProjects(orgId: string): Promise<ProjectRow[]> {
         .order("created_at", { ascending: false }),
     ),
   );
+}
+
+/** Cualquier miembro archiva; desarchivar lo puede solo un admin (trigger guard_project_unarchive, 0028). */
+export async function setArchived(projectId: string, archived: boolean): Promise<void> {
+  changed(await createClient().from("projects").update({ archived_at: archived ? new Date().toISOString() : null }).eq("id", projectId).select("id"));
+}
+
+/**
+ * Solo un admin (política projects_delete, 0027). Pide la lista de archivos antes de borrar la fila (después ya no hay
+ * proyecto del cual sacar la carpeta), borra la fila (arrastra en cascada todo lo de la base) y después los archivos.
+ * Si falla Storage, el proyecto igual queda borrado y se avisa cuántos archivos quedaron.
+ */
+export async function deleteProject(projectId: string): Promise<{ leftover: number }> {
+  const sb = createClient();
+  const paths = z.array(z.string()).parse(must(await sb.rpc("project_file_paths", { p_project: projectId })));
+  const del = await sb.from("projects").delete().eq("id", projectId).select("id");
+  if (del.error) throw new Error(del.error.message);
+  if (!del.data || del.data.length === 0) throw new Error("Solo un administrador puede eliminar proyectos");
+  let leftover = 0;
+  for (let i = 0; i < paths.length; i += 500) {
+    const chunk = paths.slice(i, i + 500);
+    const rm = await sb.storage.from("project-files").remove(chunk);
+    if (rm.error) leftover += chunk.length;
+  }
+  return { leftover };
 }
 
 /** Umbral de comparación del proyecto (dentro si cumple pct O abs_m). Validado antes de guardar. */
