@@ -5,9 +5,9 @@ import type { SectionId } from "@/lib/checklist";
 import { listCompare } from "@/lib/data/features";
 import { listImpacts, loadImpactCatalog } from "@/lib/data/impacts";
 import { loadInterferencias } from "@/lib/data/interferencias";
-import { listWaypointsTraza } from "@/lib/data/summary";
+import { listRelevamiento } from "@/lib/data/summary";
 import { severityLevel } from "@/lib/impacts";
-import { desvios, porTipo, topImpactos, trazas, type Desvio } from "@/lib/tablero";
+import { desvios, porFicha, porTipo, topImpactos, type Desvio } from "@/lib/tablero";
 import type { Thresholds } from "@/lib/threshold";
 import { cn } from "@/lib/utils";
 
@@ -80,38 +80,48 @@ function Perfil({ filas }: { filas: Desvio[] }) {
   );
 }
 
-const W = 420, H = 220;
-
-/** La traza real: waypoints en su posición GK (norte arriba). Lleno = cruzado con el GPS; hueco = sin cruzar. */
+/** Esquema por ficha: una línea por ficha con sus waypoints en orden. Lleno = cruzado con el GPS; hueco rojo = falta.
+ * Animación única al entrar: cada línea se traza y sus puntos aparecen en orden (se apaga con reducir movimiento). */
 function Traza({ projectId }: { projectId: string }) {
-  const { data = [], isLoading } = useQuery({ queryKey: ["traza", projectId], queryFn: () => listWaypointsTraza(projectId) });
-  if (isLoading) return <div className="h-48 animate-pulse bg-muted" />;
-  const t = trazas(data, W, H);
-  const cruzados = data.filter((w) => w.matched).length;
-  if (data.length === 0) return <Vacio>Todavía no hay waypoints relevados.</Vacio>;
+  const { data, isLoading } = useQuery({ queryKey: ["relevamiento-fichas", projectId], queryFn: () => listRelevamiento(projectId) });
+  if (isLoading || !data) return <div className="h-48 animate-pulse bg-muted" />;
+  const fichas = porFicha(data.wps, data.lineas);
+  if (fichas.length === 0) return <Vacio>Todavía no hay waypoints relevados.</Vacio>;
+  const total = data.wps.length, conGps = data.wps.filter((w) => w.matched).length;
   return (
     <>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full bg-[#fbfaf7]" role="img"
-        aria-label={`${data.length} waypoints: ${cruzados} cruzados con el GPS, ${data.length - cruzados} sin cruzar, ${t.sinPosicion} sin posición`}>
-        {t.lineas.map((l) => (
-          <g key={l.lineId}>
-            <polyline points={l.puntos.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")} fill="none" stroke="var(--curva)" strokeWidth="1.3" className="trazo" />
-            {l.puntos.map((p, i) => p.matched
-              ? <circle key={i} cx={p.x} cy={p.y} r="2.3" fill="var(--ok)" />
-              : <circle key={i} cx={p.x} cy={p.y} r="3.4" fill="#fff" stroke="var(--destructive)" strokeWidth="1.6" />)}
-          </g>
+      <ul className="grid gap-2.5">
+        {fichas.map((f, fi) => (
+          <li key={f.lineId} className="grid grid-cols-[4.5rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm sm:grid-cols-[6rem_minmax(0,1fr)_3.5rem]">
+            <span className="min-w-0">
+              <span className="block font-bold">{f.ficha === null ? "Sin ficha" : `Ficha ${f.ficha}`}</span>
+              {f.tipo && <span className="block truncate text-xs text-muted-foreground">{f.tipo.charAt(0).toUpperCase() + f.tipo.slice(1)}</span>}
+            </span>
+            <span className="relative flex h-4 items-center" role="img"
+              aria-label={`Ficha ${f.ficha ?? "sin número"}: ${f.total} waypoints, ${f.conGps} con GPS, ${f.total - f.conGps} sin cruzar`}>
+              <span aria-hidden="true" className="fill-x absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-curva" style={{ animationDelay: `${fi * 70}ms` }} />
+              {/* una columna por waypoint: con muchos puntos se achican en vez de salirse */}
+              <span className="relative grid w-full items-center justify-items-center" style={{ gridTemplateColumns: `repeat(${f.puntos.length}, minmax(0, 1fr))` }}>
+                {f.puntos.map((p, i) => (
+                  <span
+                    key={i}
+                    aria-hidden="true"
+                    className={cn("pop block aspect-square rounded-full", p.matched ? "w-2 max-w-full bg-ok" : "w-2.5 max-w-full border-2 border-destructive bg-card")}
+                    style={{ animationDelay: `${fi * 70 + 250 + i * 12}ms` }}
+                  />
+                ))}
+              </span>
+            </span>
+            <span className={cn("tnum text-right font-heading font-bold", f.conGps < f.total && "text-destructive")}>
+              {f.conGps}/{f.total}
+            </span>
+          </li>
         ))}
-        {/* flecha de norte, como en una carta */}
-        <g transform={`translate(${W - 16} 8)`} aria-hidden="true">
-          <path d="M5 0 L10 14 L5 10.5 L0 14 Z" fill="var(--foreground)" />
-          <text x="5" y="25" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--foreground)" fontFamily="var(--font-rot)">N</text>
-        </g>
-      </svg>
-      <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <div><dt className="text-muted-foreground">Waypoints</dt><dd className="tnum font-heading text-2xl font-bold">{data.length}</dd></div>
-        <div><dt className="text-muted-foreground">Con GPS</dt><dd className="tnum font-heading text-2xl font-bold text-ok">{cruzados}</dd></div>
-        <div><dt className="text-muted-foreground">Sin cruzar</dt><dd className="tnum font-heading text-2xl font-bold text-destructive">{data.length - cruzados}</dd></div>
-        {t.sinPosicion > 0 && <div><dt className="text-muted-foreground">Sin posición</dt><dd className="tnum font-heading text-2xl font-bold">{t.sinPosicion}</dd></div>}
+      </ul>
+      <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t pt-3 text-sm">
+        <div><dt className="text-muted-foreground">Waypoints</dt><dd className="tnum font-heading text-2xl font-bold">{total}</dd></div>
+        <div><dt className="text-muted-foreground">Con GPS</dt><dd className="tnum font-heading text-2xl font-bold text-ok">{conGps}</dd></div>
+        <div><dt className="text-muted-foreground">Sin cruzar</dt><dd className="tnum font-heading text-2xl font-bold text-destructive">{total - conGps}</dd></div>
       </dl>
     </>
   );
@@ -226,7 +236,7 @@ export function Tablero({ orgId, projectId, thresholds, onGo }: { orgId: string;
       >
         {isLoading ? <div className="h-48 animate-pulse bg-muted" /> : filas.length ? <Perfil filas={filas} /> : <Vacio>Todavía no hay obras en el alcance.</Vacio>}
       </Bloque>
-      <Bloque titulo="Relevamiento" ayuda="Los waypoints en su posición real (norte arriba). Los huecos rojos todavía no tienen el cruce con el GPS." onGo={() => onGo("relevamiento")} ir="Ir al relevamiento">
+      <Bloque titulo="Relevamiento" ayuda="Cada línea es una ficha con sus waypoints en orden. Los huecos rojos todavía no tienen el cruce con el GPS." onGo={() => onGo("relevamiento")} ir="Ir al relevamiento">
         <Traza projectId={projectId} />
       </Bloque>
       <Bloque titulo="Interferencias por tipo" ayuda="Lo que va a la tabla del informe, agrupado por figura." onGo={() => onGo("interferencias")} ir="Ver la tabla">

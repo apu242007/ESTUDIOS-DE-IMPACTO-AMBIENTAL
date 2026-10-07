@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desvios, porTipo, topImpactos, trazas } from "./tablero";
+import { desvios, porFicha, porTipo, topImpactos } from "./tablero";
 
 const obra = (o: Partial<Parameters<typeof desvios>[0][number]>) => ({
   name: "o", declared_length_m: null, declared_area_m2: null, geom_length_m: null, geom_area_m2: null, ...o,
@@ -39,23 +39,17 @@ describe("impactos más fuertes", () => {
   });
 });
 
-describe("traza del relevamiento", () => {
-  it("proyecta a GK, separa por ficha en orden de waypoint y cuenta los que no tienen posición", () => {
-    const LAT = -38.13, LON = -68.57;
-    const t = trazas([
-      { line_id: "l1", number: 2, lat: LAT - 0.001, lon: LON + 0.001, matched: true },
-      { line_id: "l1", number: 1, lat: LAT, lon: LON, matched: false },
-      { line_id: "l2", number: 1, lat: null, lon: null, matched: false },
-    ], 400, 200);
-    expect(t.sinPosicion).toBe(1);
-    expect(t.lineas).toHaveLength(1);
-    expect(t.lineas[0].puntos.map((p) => p.number)).toEqual([1, 2]);
-    expect(t.lineas[0].puntos[0].matched).toBe(false);
-    for (const p of t.lineas[0].puntos) {
-      expect(p.x).toBeGreaterThanOrEqual(0); expect(p.x).toBeLessThanOrEqual(400);
-      expect(p.y).toBeGreaterThanOrEqual(0); expect(p.y).toBeLessThanOrEqual(200);
-    }
-    // el norte va arriba: el waypoint 2 está más al sur, así que su y en pantalla es mayor
-    expect(t.lineas[0].puntos[1].y).toBeGreaterThan(t.lineas[0].puntos[0].y);
+describe("relevamiento por ficha", () => {
+  it("agrupa por ficha en orden de waypoint, cuenta los cruzados y ordena las fichas por número", () => {
+    const r = porFicha(
+      [
+        { line_id: "l2", number: 2, matched: true }, { line_id: "l2", number: 1, matched: false },
+        { line_id: "l1", number: 5, matched: true }, { line_id: "lx", number: 1, matched: true },
+      ],
+      [{ id: "l1", ficha_no: 1, kind: "Ducto" }, { id: "l2", ficha_no: 2, kind: null }],
+    );
+    expect(r.map((f) => [f.ficha, f.total, f.conGps])).toEqual([[1, 1, 1], [2, 2, 1], [null, 1, 1]]);
+    expect(r[1].puntos.map((p) => p.number)).toEqual([1, 2]);
+    expect(r[0].tipo).toBe("Ducto");
   });
 });

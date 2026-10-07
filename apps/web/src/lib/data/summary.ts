@@ -84,10 +84,17 @@ export async function listChecklists(orgId: string, projects: ProjectRow[]): Pro
   return out;
 }
 
-/** Waypoints con posición y estado del cruce GPS, para la traza del tablero. */
-export async function listWaypointsTraza(projectId: string) {
-  const { data, error } = await createClient()
-    .from("waypoints_view").select("line_id, number, lat, lon, matched").eq("project_id", projectId).limit(5000);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as { line_id: string; number: number | null; lat: number | null; lon: number | null; matched: boolean }[];
+/** Waypoints y fichas del relevamiento para el esquema por ficha del tablero. */
+export async function listRelevamiento(projectId: string) {
+  const sb = createClient();
+  const [w, l] = await Promise.all([
+    sb.from("waypoints").select("line_id, number, matched").eq("project_id", projectId).limit(5000),
+    sb.from("survey_lines").select("id, ficha_no, kind").eq("project_id", projectId),
+  ]);
+  if (w.error) throw new Error(w.error.message);
+  if (l.error) throw new Error(l.error.message);
+  return {
+    wps: (w.data ?? []) as { line_id: string; number: number | null; matched: boolean }[],
+    lineas: (l.data ?? []) as { id: string; ficha_no: number | null; kind: string | null }[],
+  };
 }
