@@ -4,6 +4,7 @@ import { useConfirm } from "@/components/confirm";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,7 +45,7 @@ function NumCell({
 }) {
   return (
     <Input
-      className="h-11 w-full min-w-0"
+      className="h-11 w-full min-w-0 px-2 text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       type="number"
       step="any"
       min={0}
@@ -141,7 +142,7 @@ export function Alcance({ projectId }: { projectId: string }) {
           {/* columnas proporcionales: la tabla llena el ancho sin barra lateral; en el celular cada obra es una ficha */}
           <table className="table-cards w-full text-sm md:table-fixed">
             <colgroup>
-              {[11, 19, 7, 10, 6, 8, 8, 6, 8, 9, 8].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+              {[11, 17, 6, 9, 6, 10, 10, 6, 9, 10, 6].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
             </colgroup>
             <thead>
               <tr className="text-left text-muted-foreground">
@@ -171,7 +172,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                 <tr key={w.id} className="border-t align-top">
                   <td data-label="Tipo" className="p-1.5">
                     <NativeSelect
-                      className="h-11 w-full min-w-0"
+                      className="h-11 w-full min-w-0 px-1.5 text-sm"
                       aria-label="Tipo de obra"
                       value={w.kind}
                       onChange={(e) => save(w, { kind: e.target.value as WorkKind })}
@@ -184,14 +185,14 @@ export function Alcance({ projectId }: { projectId: string }) {
                     </NativeSelect>
                   </td>
                   <td data-label="Nombre" data-wide className="p-1.5">
-                    <TextCell className="h-11 w-full min-w-0" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
+                    <TextCell className="h-11 w-full min-w-0 px-1.5 text-sm" value={w.name} label="Nombre" onSave={(v) => v && save(w, { name: v })} />
                   </td>
                   <td data-label="Código" className="p-1.5">
-                    <TextCell className="h-11 w-full min-w-0" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
+                    <TextCell className="h-11 w-full min-w-0 px-1.5 text-sm" value={w.code} label="Código" onSave={(v) => save(w, { code: v })} />
                   </td>
                   <td data-label="Etapa" className="p-1.5">
                     <NativeSelect
-                      className="h-11 w-full min-w-0"
+                      className="h-11 w-full min-w-0 px-1.5 text-sm"
                       aria-label="Etapa"
                       value={w.stage ?? ""}
                       onChange={(e) => save(w, { stage: (e.target.value || null) as Stage | null })}
@@ -207,7 +208,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                   <td data-label="Cantidad" className="p-1.5">
                     {/* obras iguales declaradas juntas ("2 líneas de control"): lo declarado es por unidad */}
                     <NativeSelect
-                      className="h-11 w-full min-w-0"
+                      className="h-11 w-full min-w-0 px-1.5 text-sm"
                       aria-label="Cantidad de obras iguales"
                       value={w.quantity}
                       onChange={(e) => save(w, { quantity: Number(e.target.value) })}
@@ -225,7 +226,7 @@ export function Alcance({ projectId }: { projectId: string }) {
                     <NumCell value={w.diameter_in} label="Diámetro" onSave={(v) => save(w, { diameter_in: v })} />
                   </td>
                   <td data-label="Material" className="p-1.5">
-                    <TextCell className="h-11 w-full min-w-0" value={w.material} label="Material" onSave={(v) => save(w, { material: v })} />
+                    <TextCell className="h-11 w-full min-w-0 px-1.5 text-sm" value={w.material} label="Material" onSave={(v) => save(w, { material: v })} />
                   </td>
                   <td data-label="Medido" className="p-1.5 whitespace-nowrap text-muted-foreground">
                     {w.geom_length_m !== null && `${fmt(w.geom_length_m)} m`}
@@ -235,11 +236,14 @@ export function Alcance({ projectId }: { projectId: string }) {
                   <td data-wide className="p-1.5">
                     <Button
                       variant="outline"
+                      size="icon"
+                      aria-label={`Quitar ${w.name} del alcance`}
+                      title="Quitar"
                       onClick={() => {
                         void confirm({ title: `¿Quitar “${w.name}” del alcance?`, confirmLabel: "Quitar", danger: true }).then((ok) => ok && del.mutate(w.id));
                       }}
                     >
-                      Quitar
+                      <Trash2 aria-hidden="true" />
                     </Button>
                   </td>
                 </tr>
