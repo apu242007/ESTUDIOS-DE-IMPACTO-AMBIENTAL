@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -471,12 +472,28 @@ def find_soffice() -> str | None:
 PDF_FILTER = ('pdf:writer_pdf_Export:{"ReduceImageResolution":{"type":"boolean","value":"true"},'
               '"MaxImageResolution":{"type":"long","value":"150"},"Quality":{"type":"long","value":"75"}}')
 MAX_UPLOAD = 50 * 1024 * 1024  # límite por archivo de Storage del plan
+# Las fotos son casi todo el DOCX: si su suma pasa esto, se achican ANTES de armar el documento (antes se armaba,
+# se medía y se volvía a armar entero: con 300 fotos eso duplicaba el tiempo). Deja ~10 MB para texto y figuras.
+PHOTO_BUDGET = 40 * 1024 * 1024
+WORKERS = 8  # descargas y compresiones en paralelo (red y Pillow liberan el GIL)
 
 
 def shrink_photos(px: int, q: int) -> tuple[int, int]:
     """Un paso para que el DOCX entre en Storage: 20 % menos de lado y calidad 10 puntos menos, sin bajar de 50
     y sin subirla nunca (si el usuario eligió menos de 50, se respeta)."""
     return int(px * 0.8), max(min(q, 50), q - 10)
+
+
+def fit_photos(photos: list[dict[str, Any]], px: int, q: int, log: list[str]) -> tuple[int, int]:
+    """Achica todas las fotos hasta que su suma entre en PHOTO_BUDGET (sin bajar de 600 px). Devuelve el px y la
+    calidad finales."""
+    while sum(len(ph["jpeg"]) for ph in photos) > PHOTO_BUDGET and px > 600:
+        px, q = shrink_photos(px, q)
+        with ThreadPoolExecutor(WORKERS) as ex:
+            for ph, jpg in zip(photos, ex.map(lambda ph: prepare_photo(ph["raw"], px, q), photos)):
+                ph["jpeg"] = jpg
+        log.append(f"Las fotos no entraban en {MAX_UPLOAD // 1048576} MB: reducidas a {px} px, calidad {q}.")
+    return px, q
 
 
 def _check_size(name: str, data: bytes) -> None:
@@ -615,22 +632,27 @@ def _own_path(ctx: dict[str, Any], path: str) -> str:
 def _load_photos(client: Any, ctx: dict[str, Any], params: dict[str, int], log: list[str]) -> list[dict[str, Any]]:
     order = {c["key"]: i for i, c in enumerate(ctx["photo_categories"])}
     label = {c["key"]: c["label"] for c in ctx["photo_categories"]}
-    out: list[dict[str, Any]] = []
-    for ph in sorted(ctx["photos"], key=lambda x: (order.get(x["category"], 999), x.get("taken_at") or "")):
+    todas = sorted(ctx["photos"], key=lambda x: (order.get(x["category"], 999), x.get("taken_at") or ""))
+
+    def una(ph: dict[str, Any]) -> dict[str, Any] | str:
         if not ph.get("path_original"):  # subida sin terminar: se informa (y la versión final se rechaza)
-            message = f"Foto omitida (sin archivo subido, categoría {ph.get('category')})"
-            log.append(message)
-            ctx.setdefault("_omitted", []).append(message)
-            continue
+            return f"Foto omitida (sin archivo subido, categoría {ph.get('category')})"
         try:
             raw = client.storage.from_(BUCKET).download(_own_path(ctx, ph["path_original"]))
-            out.append({"category": ph["category"], "label": label.get(ph["category"], ph["category"]),
-                        "caption": ph.get("caption"), "raw": raw,
-                        "jpeg": prepare_photo(raw, params["photo_max_px"], params["jpeg_quality"])})
+            return {"category": ph["category"], "label": label.get(ph["category"], ph["category"]),
+                    "caption": ph.get("caption"), "raw": raw,
+                    "jpeg": prepare_photo(raw, params["photo_max_px"], params["jpeg_quality"])}
         except Exception as e:  # en borrador se informa; la versión final falla después de reunir todas las omisiones
-            message = f"Foto omitida ({ph['path_original']}): {e}"
-            log.append(message)
-            ctx.setdefault("_omitted", []).append(message)
+            return f"Foto omitida ({ph['path_original']}): {e}"
+
+    out: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(WORKERS) as ex:  # en paralelo, pero el resultado conserva el orden del anexo
+        for r in ex.map(una, todas):
+            if isinstance(r, str):
+                log.append(r)
+                ctx.setdefault("_omitted", []).append(r)
+            else:
+                out.append(r)
     return out
 
 
@@ -713,8 +735,8 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             render = lambda: render_with_template(tpl_bytes, ctx, photos)  # noqa: E731
         else:
             render = lambda: build_docx(ctx, photos)  # noqa: E731
+        px, q = fit_photos(photos, params["photo_max_px"], params["jpeg_quality"], log)
         docx_bytes = render()
-        px, q = params["photo_max_px"], params["jpeg_quality"]
         while len(docx_bytes) > MAX_UPLOAD and px > 600:  # achicar fotos hasta que el DOCX entre en Storage
             px, q = shrink_photos(px, q)
             for ph in photos:
@@ -723,6 +745,12 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             log.append(f"El DOCX superaba {MAX_UPLOAD // 1048576} MB: fotos reducidas a {px} px, calidad {q}.")
 
         base = f"{job['org_id']}/{job['project_id']}/docs/{job['id']}"
+        # el Word se sube primero y queda descargable mientras LibreOffice arma el PDF (que es lo más lento)
+        _check_size("DOCX", docx_bytes)
+        client.storage.from_(BUCKET).upload(
+            f"{base}/informe.docx", docx_bytes,
+            {"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "upsert": "true"})
+        client.table("document_builds").update({"docx_path": f"{base}/informe.docx"}).eq("id", job["id"]).execute()
         pdf_path: str | None = None
         pdf_bytes: bytes | None = None
         with tempfile.TemporaryDirectory() as tmp:
@@ -738,10 +766,6 @@ def run_docs_job(client: Any, job: dict[str, Any], run: Runner = subprocess.run)
             except (RuntimeError, ValueError) as e:  # sin PDF igual se entrega el DOCX
                 log.append(str(e))
                 pdf_bytes = None
-        _check_size("DOCX", docx_bytes)
-        client.storage.from_(BUCKET).upload(
-            f"{base}/informe.docx", docx_bytes,
-            {"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "upsert": "true"})
         upd = {"status": "listo", "docx_path": f"{base}/informe.docx", "pdf_path": pdf_path}
         log.extend(ctx.get("_warn") or [])
         log.append("Versión FINAL (aprobada): sin marca de borrador." if ctx.get("final") else "Versión BORRADOR: sin aprobar.")

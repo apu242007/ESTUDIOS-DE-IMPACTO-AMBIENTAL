@@ -122,6 +122,7 @@ export function Informe({
   });
 
   const pendientes = items.filter((i) => !i.done);
+  const enCurso = builds.some((b) => b.status === "pendiente" || b.status === "procesando");
   const slug = projectName.replace(/[^\w-]+/g, "_").replace(/^_+|_+$/g, "") || "informe";
   const byBuild = new Map<string, ReviewRow[]>();
   for (const r of reviews) byBuild.set(r.build_id, [...(byBuild.get(r.build_id) ?? []), r]);
@@ -165,7 +166,7 @@ export function Informe({
               ))}
             </NativeSelect>
           </label>
-          <Button size="lg" disabled={generate.isPending} onClick={() => generate.mutate()}>
+          <Button size="lg" disabled={generate.isPending || enCurso} onClick={() => generate.mutate()}>
             {generate.isPending ? "Enviando…" : "Generar informe"}
           </Button>
           {status === "borrador" && builds.some((b) => b.status === "listo") && (
@@ -174,6 +175,12 @@ export function Informe({
             </Button>
           )}
         </div>
+        {enCurso && (
+          <p role="status" className="mt-2 max-w-prose text-sm text-muted-foreground">
+            Hay una versión en proceso: esperá que termine antes de generar o aprobar otra. Cada pedido nuevo queda en
+            fila detrás y demora el resto.
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="versiones">
@@ -196,6 +203,14 @@ export function Informe({
 
                   {b.status === "pendiente" && <EnCola />}
 
+                  {/* el worker sube el Word primero: se puede bajar mientras arma el PDF */}
+                  {b.status === "procesando" && b.docx_path && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Descarga path={b.docx_path} filename={`${slug}_v${b.version_num}.docx`} label="Descargar Word" />
+                      <span className="text-sm text-muted-foreground">El PDF{fin ? " y el paquete final se están" : " se está"} armando…</span>
+                    </div>
+                  )}
+
                   {b.status === "listo" && (
                     <div className="flex flex-wrap gap-2">
                       {fin && b.package_path && (
@@ -213,7 +228,7 @@ export function Informe({
                   {b.status === "listo" && !fin && (
                     isAdmin ? (
                       <div className="flex flex-wrap gap-2 border-t pt-3">
-                        <Button onClick={() => setDialog({ kind: "aprobar", build: b })}>Aprobar y generar versión final</Button>
+                        <Button disabled={enCurso} onClick={() => setDialog({ kind: "aprobar", build: b })}>Aprobar y generar versión final</Button>
                         <Button variant="outline" onClick={() => setDialog({ kind: "observar", build: b })}>Observar</Button>
                       </div>
                     ) : (

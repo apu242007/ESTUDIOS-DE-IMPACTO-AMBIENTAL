@@ -405,3 +405,12 @@ def test_fichas_sin_numero_no_se_intercalan() -> None:
     rows, _ = build_interferencias(wps, {"CR": "Cruce"}, {"a": (None, "Ducto"), "b": (None, "Camino")})
     trazas = [r["_traza"] for r in rows]
     assert trazas == ["Ducto"] * 3 + ["Camino"] * 3 or trazas == ["Camino"] * 3 + ["Ducto"] * 3
+
+
+def test_fotos_se_achican_antes_de_armar_el_docx(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(docs, "PHOTO_BUDGET", 1)  # nunca entra: achica hasta el piso de 600 px
+    photos = [{"raw": jpeg(3000, 2000), "jpeg": prepare_photo(jpeg(3000, 2000), 1200, 75)} for _ in range(3)]
+    log: list[str] = []
+    px, q = docs.fit_photos(photos, 1200, 75, log)
+    assert px <= 600 and q < 75 and log
+    assert all(max(Image.open(io.BytesIO(p["jpeg"])).size) <= px for p in photos)
