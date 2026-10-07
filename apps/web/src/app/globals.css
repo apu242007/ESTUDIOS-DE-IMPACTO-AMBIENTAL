@@ -166,10 +166,6 @@
     outline-offset: 2px;
   }
   /* ── Movimiento: corto (≤ 300 ms en interacción), orienta y no decora ── */
-  /* el logo dibuja sus curvas de nivel al cargar */
-  .mark-draw path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: eia-draw 1.1s cubic-bezier(.6,.1,.2,1) forwards; }
-  .mark-draw path:nth-child(2) { animation-delay: .15s; }
-  .mark-draw path:nth-child(3) { animation-delay: .3s; }
   /* subrayado de la pestaña activa */
   .grow-x { animation: eia-grow-x .25s ease-out; }
   /* contenido que entra al cambiar de sección; --i escalona listas */
@@ -180,8 +176,6 @@
   .line-y { transform-origin: top; animation: eia-line-y .4s ease-out both; animation-delay: calc(var(--i, 0) * 40ms + .2s); }
   .pop { animation: eia-pop .35s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--i, 0) * 40ms + .25s); }
   .pulse-ring { animation: eia-pulse 2s ease-out infinite; }
-  /* curvas de nivel de fondo, deriva lenta */
-  .drift { animation: eia-drift 24s ease-in-out infinite alternate; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -190,11 +184,9 @@
       scroll-behavior: auto !important;
       animation-delay: 0s !important;
     }
-    .mark-draw path { stroke-dashoffset: 0; }
   }
 }
 
-@keyframes eia-draw { to { stroke-dashoffset: 0; } }
 @keyframes eia-grow-x { from { transform: scaleX(0); } }
 @keyframes eia-enter { from { opacity: 0; transform: translateY(8px); } }
 @keyframes eia-fill-x { from { transform: scaleX(0); } }
@@ -204,7 +196,6 @@
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--jarilla) 60%, transparent); }
   70%, 100% { box-shadow: 0 0 0 10px transparent; }
 }
-@keyframes eia-drift { to { transform: translate(-4%, 3%) rotate(-4deg) scale(1.05); } }
 
 /* Tablas de datos en celular: cada fila es una ficha con sus etiquetas (data-label), sin desplazamiento lateral.
    Fuera de @layer para ganarle a las utilidades de padding de las celdas. */
