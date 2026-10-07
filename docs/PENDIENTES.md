@@ -23,9 +23,8 @@ Orden = importancia para el cliente. Tachar o borrar al cerrar cada ítem.
 
 ## Requiere decisión (auditoría 06/10/2026)
 
-- [ ] **Quién puede borrar un proyecto.** RLS `org_all` deja a cualquier miembro borrar un proyecto por la API, y el borrado
-  arrastra en cascada relevamiento, fotos, GPS y versiones. ¿Solo admin? Requiere migración en `projects` (DELETE solo
-  `is_org_admin`). Clientes ya está protegido: no se borra uno con proyectos (FK RESTRICT).
+- [x] **Quién puede borrar un proyecto.** Resuelto 07/10/2026: solo admin elimina (0027, borra base y Storage);
+  cualquiera archiva y solo admin desarchiva (0028).
 - [ ] **Versión final que no entra en 50 MB.** Ahora da un mensaje claro en vez de "Error inesperado", pero un informe
   grande sigue sin poder cerrar su paquete. Opciones: no incluir el DOCX en el zip, partirlo, o subir el límite del plan.
 - [ ] **Versión final sin PDF.** Si LibreOffice falla, la FINAL sale solo con DOCX y el aviso queda en el log
