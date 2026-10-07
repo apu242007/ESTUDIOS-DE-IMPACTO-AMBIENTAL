@@ -1,16 +1,18 @@
 "use client";
 
 import { useConfirm } from "@/components/confirm";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
+import { ImagePlus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { SelectAdd } from "@/components/select-add";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { addPhotoCategory, listPhotoCategories } from "@/lib/data/catalogs";
-import { deletePhotoRemote, listPhotos, updatePhoto, type PhotoRow } from "@/lib/data/photos";
+import { deletePhotoRemote, listPhotos, updatePhoto, uploadLoosePhotos, type PhotoRow } from "@/lib/data/photos";
 import { errMsg } from "@/lib/data/util";
 
 function Foto({
@@ -78,6 +80,53 @@ function Foto({
   );
 }
 
+/** Fotos sueltas (de gabinete o sin waypoint): varias a la vez, con una categoría. Las del campo van por Relevamiento. */
+function SubirFotos({ orgId, projectId, cats, onDone }: {
+  orgId: string; projectId: string; cats: { key: string; label: string }[]; onDone: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [categoria, setCategoria] = useState(cats[0]?.key ?? "otro");
+  const [avance, setAvance] = useState<{ hechas: number; total: number } | null>(null);
+  // el catálogo puede llegar después del primer render: siempre una categoría que exista
+  const cat = cats.some((c) => c.key === categoria) ? categoria : cats[0]?.key ?? "otro";
+  const subir = async (files: File[]) => {
+    if (files.length === 0) return;
+    setAvance({ hechas: 0, total: files.length });
+    try {
+      const n = await uploadLoosePhotos(orgId, projectId, files, cat, (hechas) => setAvance({ hechas, total: files.length }));
+      toast.success(`${n} ${n === 1 ? "foto subida" : "fotos subidas"}`);
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setAvance(null);
+      onDone();
+      if (input.current) input.current.value = "";
+    }
+  };
+  return (
+    <section aria-labelledby="subir-fotos" className="grid gap-3 border bg-card p-4">
+      <h2 id="subir-fotos" className="text-lg font-bold [font-stretch:100%]">Subir fotos</h2>
+      <p className="max-w-prose text-sm text-muted-foreground">
+        Para fotos de gabinete o que no van en un waypoint. Se comprimen y se les quita la ubicación oculta del archivo.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="grid gap-1 text-sm">
+          <span className="text-muted-foreground">Categoría</span>
+          <NativeSelect className="h-11 w-64 max-w-full" value={cat} onChange={(e) => setCategoria(e.target.value)} disabled={!!avance}>
+            {cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </NativeSelect>
+        </label>
+        <input ref={input} type="file" accept="image/jpeg,image/png" multiple className="sr-only" id="fotos-sueltas"
+          onChange={(e) => void subir([...(e.target.files ?? [])])} />
+        <Button size="lg" disabled={!!avance || cats.length === 0} onClick={() => input.current?.click()}>
+          <ImagePlus aria-hidden="true" />
+          {avance ? `Subiendo ${avance.hechas} de ${avance.total}…` : "Elegir fotos"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export function Fotos({ orgId, projectId }: { orgId: string; projectId: string }) {
   const qc = useQueryClient();
   const key = ["photos", projectId];
@@ -112,16 +161,21 @@ export function Fotos({ orgId, projectId }: { orgId: string; projectId: string }
   const label = (k: string) => cats.find((c) => c.key === k)?.label ?? k;
 
   if (isLoading) return <p>Cargando…</p>;
+  const subir = <SubirFotos orgId={orgId} projectId={projectId} cats={cats} onDone={refresh} />;
   if (photos.length === 0) {
     return (
-      <p className="max-w-prose text-base text-muted-foreground">
-        Todavía no hay fotos. Se cargan desde el celular en Relevamiento y aparecen acá al sincronizar.
-      </p>
+      <div className="grid gap-6">
+        {subir}
+        <p className="max-w-prose text-base text-muted-foreground">
+          Todavía no hay fotos. Las del campo se cargan desde el celular en Relevamiento y aparecen acá al sincronizar.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="grid gap-8">
+      {subir}
       <p className="tnum text-base text-muted-foreground">
         {photos.length} fotos en {groups.length} categorías.
       </p>
