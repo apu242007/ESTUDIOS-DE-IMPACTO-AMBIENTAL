@@ -73,11 +73,13 @@ export function buildChecklist(c: Counts): CheckItem[] {
         : `${plural(abiertas, "ficha abierta", "fichas abiertas")}: cerralas al terminar el tramo.`,
     },
     {
-      id: "gps", section: "gps", label: "Cruce con el GPS", done: c.waypoints > 0 && gpsListo && sinGps === 0,
+      // se decide por los datos (waypoints cruzados), no por el registro del archivo: quitar un .gdb ya cruzado
+      // conserva las posiciones y no debe volver a pedirlo
+      id: "gps", section: "gps", label: "Cruce con el GPS", done: c.waypoints > 0 && sinGps === 0,
       detail:
         c.waypoints === 0 ? "Se cruza cuando haya waypoints relevados."
-        : !gpsListo ? "Subí el .gdb del GPS de mano."
         : sinGps === 0 ? "Todos los waypoints tienen posición del GPS."
+        : !gpsListo && c.waypointsMatched === 0 ? "Subí el .gdb del GPS de mano."
         : `${plural(sinGps, "waypoint sin posición GPS", "waypoints sin posición GPS")}.`,
     },
     {

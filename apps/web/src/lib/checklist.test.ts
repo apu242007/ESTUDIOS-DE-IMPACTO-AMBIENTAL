@@ -42,9 +42,15 @@ describe("lista de chequeo", () => {
     expect(capas.detail).toContain("1 capa necesita atención");
   });
 
-  it("GPS: sin archivo pide el .gdb; con archivo cuenta waypoints sin posición", () => {
-    expect(buildChecklist({ ...completo, gpsStatuses: [] }).find((i) => i.id === "gps")!.detail).toContain(".gdb");
-    expect(buildChecklist({ ...completo, waypointsMatched: 37 }).find((i) => i.id === "gps")!.detail).toContain("3 waypoints sin posición GPS");
+  it("GPS: se decide por los datos, no por el registro del archivo", () => {
+    const gps = (c: Counts) => buildChecklist(c).find((i) => i.id === "gps")!;
+    // todos los waypoints de campo cruzados: listo aunque el archivo se haya quitado (las posiciones se conservan)
+    expect(gps({ ...completo, gpsStatuses: [] })).toMatchObject({ done: true });
+    // faltan y no hay archivo procesado: pide el .gdb
+    expect(gps({ ...completo, gpsStatuses: [], waypointsMatched: 0 })).toMatchObject({ done: false });
+    expect(gps({ ...completo, gpsStatuses: [], waypointsMatched: 0 }).detail).toContain(".gdb");
+    // hay archivo pero quedaron algunos sin cruzar: los cuenta
+    expect(gps({ ...completo, waypointsMatched: 37 }).detail).toContain("3 waypoints sin posición GPS");
   });
 
   it("estado por sección: cada sección refleja sus propios ítems", () => {
